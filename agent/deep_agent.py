@@ -81,6 +81,9 @@ strengths (list of str), gaps (list of str),
 web_evidence (list of {"title","url","finding"}), cv_excerpts (list of str)."""
 
 
+DEFAULT_GEMINI_MODELS = "gemini-2.5-flash,gemini-3.5-flash,gemini-2.5-flash-lite,gemini-3.1-flash-lite"
+
+
 class AgentNotConfigured(RuntimeError):
     pass
 
@@ -131,16 +134,24 @@ def _gemini_key() -> str:
     return os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or ""
 
 
-def _build_model(provider: str):
+def gemini_models() -> list[str]:
+    """GEMINI_MODEL may list several models; each has its own free-tier daily quota."""
+    raw = os.getenv("GEMINI_MODEL", "") or DEFAULT_GEMINI_MODELS
+    return [m.strip() for m in raw.split(",") if m.strip()]
+
+
+def _build_model(provider: str, model_name: str | None = None):
     if provider == "gemini":
         if not _gemini_key():
             raise AgentNotConfigured("GEMINI_API_KEY is empty")
         from langchain_google_genai import ChatGoogleGenerativeAI
 
         return ChatGoogleGenerativeAI(
-            model=os.getenv("GEMINI_MODEL", "gemini-2.5-flash"),
+            model=model_name or gemini_models()[0],
             google_api_key=_gemini_key(),
             temperature=0,
+            # Fail fast on an exhausted quota so the next model in the chain is tried.
+            max_retries=1,
         )
     if provider == "ollama":
         reason = ollama_status()
@@ -166,7 +177,10 @@ def model_chain() -> list[tuple[str, object]]:
     chain, reasons = [], []
     for name in order:
         try:
-            chain.append((name, _build_model(name)))
+            if name == "gemini":
+                chain.extend((name, _build_model(name, model)) for model in gemini_models())
+            else:
+                chain.append((name, _build_model(name)))
         except AgentNotConfigured as exc:
             reasons.append(f"{name}: {exc}")
     if not chain:

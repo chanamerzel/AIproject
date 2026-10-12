@@ -1,4 +1,5 @@
 import sqlite3
+import time
 from contextlib import contextmanager
 from urllib.parse import urlparse, unquote
 
@@ -131,16 +132,23 @@ def _mssql_connect(url: str):
     host = parsed.hostname or "localhost"
     port = parsed.port or 1433
     database = (parsed.path or "/").lstrip("/")
-    return pymssql.connect(
-        server=host,
-        user=user,
-        password=password,
-        database=database,
-        port=port,
-        login_timeout=15,
-        timeout=30,
-        charset="UTF-8",
-    )
+    # Somee's free tier sometimes drops the first TDS handshake ("Unexpected EOF").
+    for attempt in range(3):
+        try:
+            return pymssql.connect(
+                server=host,
+                user=user,
+                password=password,
+                database=database,
+                port=port,
+                login_timeout=15,
+                timeout=30,
+                charset="UTF-8",
+            )
+        except pymssql.OperationalError:
+            if attempt == 2:
+                raise
+            time.sleep(2 * (attempt + 1))
 
 
 def backend_name() -> str:

@@ -101,11 +101,14 @@ def test_worker_refuses_without_llm(monkeypatch):
         deep_agent.model_chain()
 
 
-def test_auto_prefers_gemini_then_ollama(monkeypatch):
+def test_auto_prefers_each_gemini_model_then_ollama(monkeypatch):
     monkeypatch.setenv("LLM_PROVIDER", "auto")
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    monkeypatch.setenv("GEMINI_MODEL", "gemini-a, gemini-b")
     monkeypatch.setattr(deep_agent, "ollama_status", lambda: None)
-    assert [name for name, _ in deep_agent.model_chain()] == ["gemini", "ollama"]
+    chain = deep_agent.model_chain()
+    assert [name for name, _ in chain] == ["gemini", "gemini", "ollama"]
+    assert [model.model for _, model in chain[:2]] == ["gemini-a", "gemini-b"]
 
 
 def test_auto_uses_ollama_when_gemini_has_no_key(monkeypatch):
