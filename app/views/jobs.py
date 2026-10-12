@@ -1,0 +1,94 @@
+from flask import Blueprint, current_app, flash, redirect, render_template, request, url_for
+
+from app.commands.jobs import close_job, draft_job, open_job
+from app.queries.applications import get_application_by_candidate_job, list_for_job
+from app.queries.jobs import get_job, list_jobs
+from app.queries.semantic import similar_candidates_for_job
+from app.security import current_user, login_required, role_required
+
+bp = Blueprint("jobs", __name__, url_prefix="/jobs")
+
+
+@bp.route("/")
+@login_required
+def table():
+    q = request.args.get("q", "").strip()
+    status = request.args.get("status") or None
+    user = current_user()
+    if user["role"] == "candidate":
+        status = status or "Open"
+    jobs = list_jobs(status=status, q=q or None)
+    return render_template("jobs/table.html", jobs=jobs, q=q, status=status or "")
+
+
+@bp.route("/new", methods=["GET", "POST"])
+@role_required("hr", "hiring_manager")
+def create():
+    if request.method == "POST":
+        try:
+            job_id = draft_job(
+                current_user()["id"],
+                request.form["title"],
+                request.form["description"],
+                request.form["must_have_skills"],
+                request.form.get("nice_to_have_skills", ""),
+                request.form.get("min_years", 0),
+                request.form["location"],
+            )
+        except ValueError as exc:
+            flash(str(exc), "danger")
+            return render_template("jobs/form.html")
+        flash("המשרה נשמרה כטיוטה. מנהל גיוס צריך לאשר פתיחה.", "success")
+        return redirect(url_for("jobs.detail", job_id=job_id))
+    return render_template("jobs/form.html")
+
+
+@bp.route("/<job_id>")
+@login_required
+def detail(job_id):
+    job = get_job(job_id)
+    if not job:
+        flash("משרה לא נמצאה", "danger")
+        return redirect(url_for("jobs.table"))
+    user = current_user()
+    applications = []
+    my_application = None
+    if user["role"] in ("hr", "hiring_manager"):
+        applications = list_for_job(job_id, request.args.get("app_status") or None)
+    else:
+        my_application = get_application_by_candidate_job(user["id"], job_id)
+    return render_template(
+        "jobs/detail.html",
+        job=job,
+        applications=applications,
+        my_application=my_application,
+    )
+
+
+@bp.route("/<job_id>/open", methods=["POST"])
+@role_required("hiring_manager")
+def open_route(job_id):
+    try:
+        open_job(job_id, current_user()["id"])
+        flash("המשרה פתוחה לקבלת מועמדויות", "success")
+    except ValueError as exc:
+        flash(str(exc), "danger")
+    return redirect(url_for("jobs.detail", job_id=job_id))
+
+
+@bp.route("/<job_id>/close", methods=["POST"])
+@role_required("hr", "hiring_manager")
+def close_route(job_id):
+    close_job(job_id, current_user()["id"])
+    flash("המשרה נסגרה", "success")
+    return redirect(url_for("jobs.detail", job_id=job_id))
+
+
+@bp.route("/<job_id>/semantic")
+@role_required("hr", "hiring_manager")
+def semantic(job_id):
+    job = get_job(job_id)
+    if not job:
+        return redirect(url_for("jobs.table"))
+    matches = similar_candidates_for_job(job)
+    return render_template("jobs/semantic.html", job=job, matches=matches)

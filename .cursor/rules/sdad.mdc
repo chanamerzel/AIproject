@@ -1,0 +1,15 @@
+---
+description: SDAD, CQRS and Event Sourcing rules for FitScreen. Always apply. Domain is hiring jobs only.
+alwaysApply: true
+---
+
+# FitScreen SDAD rule
+
+- Read `docs/` before writing code. Implement one feature from `docs/04-features.md` at a time (UI + command/query + event + test).
+- Commands live in `app/commands/`. They validate, append events, then project. They never return large read models for screens.
+- Queries live in `app/queries/`. They only SELECT from projection tables. They never call `event_store.append`.
+- Views in `app/views/` are MVC controllers: parse HTTP, call command or query, render Jinja.
+- Never UPDATE business state on `jobs` or `applications` except inside `app/projections.py`.
+- Domain is candidate screening for jobs. Do not add flights, tickets, news, or events-as-parties as product language.
+- Persist CVs to `uploads/` and embeddings via `agent/rag.py` (Chroma).
+- The evaluation agent runs in a separate process (`agent.worker`), not inside a Flask request.

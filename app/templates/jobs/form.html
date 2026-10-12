@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}משרה חדשה{% endblock %}
+{% block body %}
+<div class="col-lg-8">
+  <h1 class="h3 mb-3">משרה חדשה</h1>
+  <p class="text-secondary">נשמרת כטיוטה. מנהל גיוס חייב לאשר פתיחה לפני שמועמדים יכולים להגיש.</p>
+  <form method="post" class="card p-4">
+    <div class="mb-3">
+      <label class="form-label" for="title">כותרת</label>
+      <input class="form-control" id="title" name="title" required>
+    </div>
+    <div class="mb-3">
+      <label class="form-label" for="location">מיקום</label>
+      <input class="form-control" id="location" name="location" required placeholder="תל אביב / היברידי">
+    </div>
+    <div class="mb-3">
+      <label class="form-label" for="min_years">שנות ניסיון מינימום</label>
+      <input class="form-control" id="min_years" name="min_years" type="number" min="0" value="0">
+    </div>
+    <div class="mb-3">
+      <label class="form-label" for="must_have_skills">כישורי חובה (מופרדים בפסיק)</label>
+      <input class="form-control" id="must_have_skills" name="must_have_skills" required placeholder="Python, Flask, SQL">
+    </div>
+    <div class="mb-3">
+      <label class="form-label" for="nice_to_have_skills">כישורים רצויים</label>
+      <input class="form-control" id="nice_to_have_skills" name="nice_to_have_skills" placeholder="Docker, Chroma">
+    </div>
+    <div class="mb-3">
+      <label class="form-label" for="description">תיאור</label>
+      <textarea class="form-control" id="description" name="description" rows="6" required></textarea>
+    </div>
+    <button class="btn btn-primary" type="submit">שמירת טיוטה</button>
+  </form>
+</div>
+{% endblock %}

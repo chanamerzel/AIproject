@@ -1,0 +1,61 @@
+name: fitscreen
+
+x-app-env: &app-env
+  FLASK_SECRET_KEY: ${FLASK_SECRET_KEY:-change-me}
+  # Somee SQL Server in the demo; the SQLite fallback lives on a shared volume.
+  DATABASE_URL: ${DATABASE_URL:-sqlite:////app/data/fitscreen.db}
+  AGENT_API_KEY: ${AGENT_API_KEY:-dev-agent-key}
+  CHROMA_PATH: /app/chroma_data
+  TAVILY_API_KEY: ${TAVILY_API_KEY:-}
+  GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+  LLM_PROVIDER: ${LLM_PROVIDER:-gemini}
+  GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+  OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+  OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:3b}
+  WORKER_POLL_SECONDS: ${WORKER_POLL_SECONDS:-20}
+
+x-app-volumes: &app-volumes
+  - fitscreen_data:/app/data
+  - fitscreen_uploads:/app/uploads
+  - fitscreen_chroma:/app/chroma_data
+
+services:
+  web:
+    build: .
+    image: fitscreen:latest
+    environment: *app-env
+    volumes: *app-volumes
+    ports:
+      - "${WEB_PORT:-5000}:5000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:5000/health', timeout=10).status == 200 else 1)"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+
+  worker:
+    image: fitscreen:latest
+    command: ["python", "-m", "agent.worker"]
+    environment: *app-env
+    volumes: *app-volumes
+    depends_on:
+      web:
+        condition: service_healthy
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["ollama"]
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    restart: unless-stopped
+
+volumes:
+  fitscreen_data:
+  fitscreen_uploads:
+  fitscreen_chroma:
+  ollama_models:

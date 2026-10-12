@@ -1,0 +1,50 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  sqlite:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: python -m pytest tests -q
+
+  sql-server:
+    # Same engine as the Somee cloud database: proves the event store and projections run on MS SQL.
+    runs-on: ubuntu-latest
+    services:
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_SA_PASSWORD: FitScreen2026x
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P FitScreen2026x -Q 'SELECT 1'"
+          --health-interval 10s --health-timeout 5s --health-retries 12
+    env:
+      TEST_DATABASE_URL: mssql+pymssql://sa:FitScreen2026x@localhost:1433/fitscreen_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Create test database
+        run: docker exec ${{ job.services.mssql.id }} /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P FitScreen2026x -Q "CREATE DATABASE fitscreen_test"
+      - run: python -m pytest tests -q
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose build

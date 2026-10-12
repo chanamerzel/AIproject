@@ -1,0 +1,7 @@
+Avi Levi
+avi.levi@example.com
+Pastry chef with 8 years experience at Sweet Oven bakery.
+
+Skills: sourdough, laminated dough, cake decoration, kitchen management.
+
+No software engineering background.

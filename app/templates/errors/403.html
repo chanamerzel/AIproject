@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}אין הרשאה{% endblock %}
+{% block body %}
+<div class="card p-4">
+  <h1 class="h3">אין הרשאה למסך זה</h1>
+  <p>התפקיד שלך אינו יכול לבצע את הפעולה. מועמד לא ניגש לדשבורד גיוס, ורק מנהל גיוס מאשר פתיחת משרה.</p>
+  <a href="{{ url_for('main.index') }}">חזרה</a>
+</div>
+{% endblock %}

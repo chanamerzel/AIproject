@@ -1,0 +1,30 @@
+{
+  "name": "fitscreen-mcp-studio",
+  "description": "Two FitScreen tools exported for MCP Studio / Cursor MCP.",
+  "tools": [
+    {
+      "name": "extract_resume_profile",
+      "description": "Parse a CV into emails, skills, years, last company, and a short summary.",
+      "input_schema": {
+        "type": "object",
+        "properties": { "cv_text": { "type": "string" } },
+        "required": ["cv_text"]
+      }
+    },
+    {
+      "name": "evaluate_requirement_coverage",
+      "description": "Score how well a CV covers a job's must-have and nice-to-have skills.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "must_have_skills": { "type": "string" },
+          "nice_to_have_skills": { "type": "string" },
+          "cv_text": { "type": "string" },
+          "min_years": { "type": "integer" },
+          "years_experience": { "type": ["integer", "null"] }
+        },
+        "required": ["must_have_skills", "cv_text"]
+      }
+    }
+  ]
+}

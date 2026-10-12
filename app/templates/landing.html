@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}FitScreen — סינון מועמדים{% endblock %}
+{% block body %}
+<div class="row align-items-center g-4 mb-5">
+  <div class="col-lg-7">
+    <p class="text-primary fw-semibold mb-2">מערכת גיוס · Event Sourcing · Deep Agent</p>
+    <h1 class="display-5 fw-bold">סינון מועמדים על סמך ראיות, לא תחושת בטן</h1>
+    <p class="lead">HR מפרסם משרה. מועמד מגיש קורות חיים. סוכן AI נפרד מעריך התאמה עם RAG וחיפוש ברשת. ההחלטה נשמרת כאירוע.</p>
+    <a class="btn btn-primary btn-lg" href="{{ url_for('auth.register') }}">הרשמה</a>
+    <a class="btn btn-outline-primary btn-lg" href="{{ url_for('auth.login') }}">כניסה</a>
+  </div>
+  <div class="col-lg-5">
+    <div class="card p-4">
+      <h2 class="h5">שלושה תפקידים</h2>
+      <ul class="mb-0">
+        <li><strong>מועמד</strong> — חיפוש משרה, פרטים, הגשה + CV</li>
+        <li><strong>גיוס</strong> — יצירת משרה, טבלת מועמדים, החלטה</li>
+        <li><strong>מנהל גיוס</strong> — אישור פתיחת משרה ודשבורד</li>
+      </ul>
+    </div>
+  </div>
+</div>
+<div class="row g-3">
+  <div class="col-md-4">
+    <div class="card h-100 p-3">
+      <div class="text-primary fw-bold">1</div>
+      <h3 class="h5">הזנה</h3>
+      <p class="mb-0 text-secondary">משרה עם כישורי חובה/רצוי, ואז מועמדות עם קובץ CV.</p>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card h-100 p-3">
+      <div class="text-primary fw-bold">2</div>
+      <h3 class="h5">הערכת סוכן</h3>
+      <p class="mb-0 text-secondary">תהליך נפרד: MCP Studio, Chroma, Tavily, ציון והמלצה.</p>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card h-100 p-3">
+      <div class="text-primary fw-bold">3</div>
+      <h3 class="h5">החלטה</h3>
+      <p class="mb-0 text-secondary">דשבורד משרות פתוחות + נרשמים, ואז ראיון / דחייה / הצעה.</p>
+    </div>
+  </div>
+</div>
+{% endblock %}

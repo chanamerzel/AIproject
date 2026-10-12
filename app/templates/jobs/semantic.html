@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}התאמה סמנטית — {{ job.title }}{% endblock %}
+{% block body %}
+<h1 class="h3 mb-2">חיפוש סמנטי למשרה</h1>
+<p class="text-secondary">השוואת וקטור תיאור המשרה מול קורות חיים ב-Chroma (RAG).</p>
+<p><a href="{{ url_for('jobs.detail', job_id=job.id) }}">חזרה למשרה</a></p>
+<div class="card">
+  <table class="table mb-0">
+    <thead><tr><th>מועמדות</th><th>דמיון</th><th></th></tr></thead>
+    <tbody>
+      {% for m in matches %}
+      <tr>
+        <td>{{ m.candidate_name or m.application_id }}</td>
+        <td>{{ '%.0f'|format(m.score * 100) }}%</td>
+        <td><a href="{{ url_for('applications.detail', application_id=m.application_id) }}">פרטים</a></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="3" class="text-secondary">אין הטמעות עדיין. יש להגיש CV ואז לרענן.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

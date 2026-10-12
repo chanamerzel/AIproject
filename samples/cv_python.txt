@@ -1,0 +1,8 @@
+Dana Cohen
+dana.cohen@example.com
+Python backend engineer with 6 years experience at NovaLabs.
+
+Skills: Python, Flask, SQL, Docker, pytest, REST, Linux, Git.
+
+Built hiring APIs with Flask blueprints, CQRS-style command handlers, and PostgreSQL.
+Led a RAG prototype using embeddings for resume search.

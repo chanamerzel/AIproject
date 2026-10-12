@@ -1,0 +1,105 @@
+"""Call tools over MCP JSON-RPC (stdio), not Python import."""
+
+from __future__ import annotations
+
+import json
+import os
+import shutil
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+
+
+def call_studio_tool(name: str, arguments: dict) -> dict:
+    return _stdio_call(
+        command=sys.executable,
+        args=["-m", "mcp_studio"],
+        arguments_env={"PYTHONPATH": str(ROOT), **os.environ},
+        tool_name=name,
+        arguments=arguments,
+        cwd=str(ROOT),
+    )
+
+
+def call_tavily_search(query: str, max_results: int = 3) -> dict:
+    key = os.getenv("TAVILY_API_KEY", "").strip()
+    if not key:
+        return {
+            "ok": False,
+            "error": "TAVILY_API_KEY missing — Tavily MCP was not started",
+            "results": [],
+        }
+    installed = shutil.which("tavily-mcp")
+    if installed:
+        command, args = installed, []
+    else:
+        command, args = ("npx.cmd" if os.name == "nt" else "npx"), ["-y", "tavily-mcp@latest"]
+    try:
+        raw = _stdio_call(
+            command=command,
+            args=args,
+            arguments_env={**os.environ, "TAVILY_API_KEY": key},
+            tool_name=("tavily_search", "tavily-search"),
+            arguments={"query": query, "max_results": max_results},
+            cwd=str(ROOT),
+        )
+        return {"ok": True, "results": _as_results(raw), "raw": raw}
+    except Exception as exc:
+        return {"ok": False, "error": str(exc), "results": []}
+
+
+def _as_results(raw) -> list:
+    if isinstance(raw, list):
+        return raw
+    if isinstance(raw, dict):
+        if "results" in raw:
+            return raw["results"]
+        return [raw]
+    return [{"content": str(raw)}]
+
+
+def _stdio_call(command, args, arguments_env, tool_name, arguments, cwd) -> dict:
+    import anyio
+    from mcp import ClientSession, StdioServerParameters
+    from mcp.client.stdio import stdio_client
+
+    async def _run():
+        params = StdioServerParameters(
+            command=command,
+            args=args,
+            env={k: str(v) for k, v in arguments_env.items() if v is not None},
+            cwd=cwd,
+        )
+        async with stdio_client(params) as (read, write):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                name = tool_name
+                if isinstance(tool_name, tuple):
+                    available = {t.name for t in (await session.list_tools()).tools}
+                    name = next((n for n in tool_name if n in available), None)
+                    if not name:
+                        raise RuntimeError(f"MCP server exposes none of {tool_name}; has {sorted(available)}")
+                result = await session.call_tool(name, arguments)
+                if getattr(result, "isError", False):
+                    raise RuntimeError(_parse_tool_result(result))
+                return _parse_tool_result(result)
+
+    return anyio.run(_run)
+
+
+def _parse_tool_result(result) -> dict:
+    chunks = []
+    for item in getattr(result, "content", []) or []:
+        text = getattr(item, "text", None)
+        if text:
+            chunks.append(text)
+    blob = "\n".join(chunks).strip()
+    if not blob:
+        if getattr(result, "structuredContent", None):
+            return result.structuredContent
+        return {}
+    try:
+        return json.loads(blob)
+    except json.JSONDecodeError:
+        return {"text": blob}

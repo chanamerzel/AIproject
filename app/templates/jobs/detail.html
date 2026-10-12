@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}{{ job.title }}{% endblock %}
+{% block body %}
+<div class="d-flex justify-content-between align-items-start mb-3">
+  <div>
+    <h1 class="h3 mb-1">{{ job.title }}</h1>
+    <p class="mb-0">
+      <span class="badge text-bg-{{ STATUS_BADGE[job.status] }}">{{ STATUS_LABELS[job.status] }}</span>
+      <span class="text-secondary">{{ job.location }} · {{ job.applicant_count }} נרשמים · ניסיון מ-{{ job.min_years }} שנים</span>
+    </p>
+  </div>
+  <div class="d-flex gap-2">
+    {% if current_user.role == 'hiring_manager' and job.status == 'Draft' %}
+    <form method="post" action="{{ url_for('jobs.open_route', job_id=job.id) }}">
+      <button class="btn btn-success" type="submit">אישור פתיחה</button>
+    </form>
+    {% endif %}
+    {% if current_user.role in ['hr','hiring_manager'] and job.status == 'Open' %}
+    <form method="post" action="{{ url_for('jobs.close_route', job_id=job.id) }}">
+      <button class="btn btn-outline-dark" type="submit">סגירת משרה</button>
+    </form>
+    <a class="btn btn-outline-primary" href="{{ url_for('jobs.semantic', job_id=job.id) }}">התאמה סמנטית</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card p-4 mb-3">
+      <h2 class="h5">תיאור</h2>
+      <p class="mb-0" style="white-space:pre-wrap">{{ job.description }}</p>
+    </div>
+    <div class="card p-4">
+      <h2 class="h5">כישורים</h2>
+      <p><strong>חובה:</strong> {{ job.must_have_skills }}</p>
+      <p class="mb-0"><strong>רצוי:</strong> {{ job.nice_to_have_skills or '—' }}</p>
+    </div>
+  </div>
+  <div class="col-lg-5">
+    {% if current_user.role == 'candidate' %}
+    <div class="card p-4">
+      <h2 class="h5">הגשת מועמדות</h2>
+      {% if job.status != 'Open' %}
+      <p class="mb-0 text-secondary">ניתן להגיש רק למשרה פתוחה.</p>
+      {% elif my_application %}
+      <p>כבר הגשת מועמדות.</p>
+      <a href="{{ url_for('applications.detail', application_id=my_application.id) }}">לצפייה במועמדות</a>
+      {% else %}
+      <form method="post" action="{{ url_for('applications.apply', job_id=job.id) }}" enctype="multipart/form-data">
+        <label class="form-label" for="cv">קורות חיים (TXT או PDF עם טקסט)</label>
+        <input class="form-control mb-3" id="cv" name="cv" type="file" accept=".txt,.pdf,.md" required>
+        <button class="btn btn-primary" type="submit">שליחה</button>
+      </form>
+      {% endif %}
+    </div>
+    {% else %}
+    <div class="card p-4">
+      <h2 class="h5">מועמדים</h2>
+      <div class="table-responsive">
+        <table class="table table-sm mb-0">
+          <thead><tr><th>שם</th><th>סטטוס</th><th>ציון סוכן</th><th></th></tr></thead>
+          <tbody>
+            {% for app in applications %}
+            <tr>
+              <td>{{ app.candidate_name }}</td>
+              <td><span class="badge text-bg-{{ STATUS_BADGE[app.status] }}">{{ STATUS_LABELS[app.status] }}</span></td>
+              <td>{{ app.agent_score if app.agent_score is not none else '—' }}</td>
+              <td><a href="{{ url_for('applications.detail', application_id=app.id) }}">דוח</a></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="text-secondary">אין מועמדויות.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

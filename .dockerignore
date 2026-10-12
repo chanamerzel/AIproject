@@ -1,0 +1,15 @@
+.git
+.venv
+venv
+__pycache__
+*.py[cod]
+.pytest_cache
+.env
+*.db
+*.log
+uploads/
+chroma_data/
+.cursor/
+.agents/
+.idea/
+.vscode/

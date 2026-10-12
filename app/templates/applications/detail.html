@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}מועמדות{% endblock %}
+{% block body %}
+<h1 class="h3">{{ application.job_title }}</h1>
+<p>
+  {{ application.candidate_name }} · {{ application.candidate_email }}
+  · <span class="badge text-bg-{{ STATUS_BADGE[application.status] }}">{{ STATUS_LABELS[application.status] }}</span>
+  {% if application.agent_score is not none %}· ציון {{ application.agent_score }}{% endif %}
+</p>
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card p-4 mb-3">
+      <h2 class="h5">דוח סוכן ההערכה</h2>
+      {% if current_user.role == 'candidate' %}
+      <p class="mb-0 text-secondary">המועמדות בטיפול צוות הגיוס. סטטוס נוכחי: {{ STATUS_LABELS[application.status] }}.</p>
+      {% elif application.status == 'ScreeningFailed' %}
+      <div class="alert alert-danger mb-0">
+        הסוכן נכשל שלוש פעמים בהערכת המועמדות. השגיאה האחרונה: {{ last_failure or 'לא ידוע' }}
+      </div>
+      {% elif not report %}
+      <p class="mb-0 text-secondary">
+        {% if application.status == 'Screening' %}הסוכן מעריך את המועמדות כעת.
+        {% else %}המועמדות בתור. הסוכן רץ כתהליך נפרד (<code>agent.worker</code>) ויעריך אותה בסבב הקרוב.{% endif %}
+        {% if last_failure %}<br><span class="text-danger small">ניסיון קודם נכשל: {{ last_failure }}</span>{% endif %}
+      </p>
+      {% else %}
+      <div class="d-flex flex-wrap gap-3 mb-3">
+        <div class="border rounded p-2 text-center"><div class="small text-secondary">ציון כולל</div><div class="fs-4 fw-bold">{{ report.overall_score }}</div></div>
+        <div class="border rounded p-2 text-center"><div class="small text-secondary">כיסוי דרישות</div><div class="fs-5">{{ report.skill_coverage }}</div></div>
+        <div class="border rounded p-2 text-center"><div class="small text-secondary">התאמה סמנטית</div><div class="fs-5">{{ report.semantic_fit }}</div></div>
+        <div class="border rounded p-2 text-center"><div class="small text-secondary">ראיות רשת</div><div class="fs-5">{{ report.web_score if report.web_score is not none else '—' }}</div></div>
+        <div class="border rounded p-2 text-center"><div class="small text-secondary">המלצה</div><div class="fs-5">{{ RECOMMENDATION_LABELS.get(report.recommendation, report.recommendation) }}</div></div>
+      </div>
+      {% if report.summary %}<p>{{ report.summary }}</p>{% endif %}
+      {% if report.strengths %}<p class="mb-1"><strong>חוזקות:</strong> {{ report.strengths | join(', ') }}</p>{% endif %}
+      {% if report.gaps %}<p class="mb-1"><strong>פערים:</strong> {{ report.gaps | join(', ') }}</p>{% endif %}
+      {% if report.cv_excerpts %}
+      <h3 class="h6 mt-3">קטעי קורות חיים רלוונטיים (RAG)</h3>
+      <ul>{% for x in report.cv_excerpts %}<li class="small" style="white-space: pre-line">{{ x }}</li>{% endfor %}</ul>
+      {% endif %}
+      {% if report.web_evidence %}
+      <h3 class="h6">ראיות מהרשת (Tavily MCP)</h3>
+      <ul>
+        {% for w in report.web_evidence %}
+        <li class="small">
+          {% if w.url %}<a href="{{ w.url }}" target="_blank" rel="noopener">{{ w.title or w.url }}</a>{% else %}{{ w.title }}{% endif %}
+          {% if w.finding %} — {{ w.finding }}{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+      <p class="small text-secondary mb-0 mt-2">
+        מנוע: {{ report.runtime }} · כלים: {{ (report.tools_used or []) | join(', ') }}
+        {% if report.tools_skipped_by_agent %}· הסוכן דילג והמערכת השלימה: {{ report.tools_skipped_by_agent | join(', ') }}{% endif %}
+      </p>
+      {% endif %}
+    </div>
+    {% if current_user.role in ['hr','hiring_manager'] and application.status in ['Screened','Interview'] %}
+    <div class="card p-4">
+      <h2 class="h5">החלטת גיוס</h2>
+      <form method="post" action="{{ url_for('applications.decide_route', application_id=application.id) }}">
+        <div class="mb-3">
+          <label class="form-label" for="decision">החלטה</label>
+          <select class="form-select" id="decision" name="decision" required>
+            <option value="interview">הזמנה לראיון</option>
+            <option value="offer">הצעת עבודה</option>
+            <option value="reject">דחייה</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="reason">נימוק (נשמר באירוע)</label>
+          <textarea class="form-control" id="reason" name="reason" rows="3" required></textarea>
+        </div>
+        <button class="btn btn-primary" type="submit">שמירת החלטה</button>
+      </form>
+    </div>
+    {% endif %}
+    {% if application.decision_reason %}
+    <div class="alert alert-info mt-3">נימוק אחרון: {{ application.decision_reason }}</div>
+    {% endif %}
+  </div>
+  <div class="col-lg-5">
+    <div class="card p-4">
+      <h2 class="h5">ציר זמן אירועים</h2>
+      <ol class="mb-0">
+        {% for ev in timeline %}
+        <li class="mb-2">
+          <strong>{{ ev.event_type }}</strong>
+          <div class="small text-secondary">{{ ev.occurred_at }} · v{{ ev.version }}</div>
+        </li>
+        {% endfor %}
+      </ol>
+    </div>
+  </div>
+</div>
+{% endblock %}
