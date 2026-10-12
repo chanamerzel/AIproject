@@ -18,6 +18,7 @@ flowchart LR
   W --> CH[(Chroma - MiniLM embeddings)]
   W --> MCP[MCP Studio server]
   W --> TV[Tavily MCP]
+  W --> GM[Gmail MCP - מייל החלטה]
   W --> LLM[Gemini, Ollama כגיבוי]
 ```
 
@@ -45,6 +46,18 @@ docker compose logs -f worker
 - `LLM_PROVIDER=gemini` או `LLM_PROVIDER=ollama` מכריחים מודל אחד.
 - על מחשב בלי כרטיס מסך Ollama איטי מאוד (יותר מ-10 דקות להערכה), ולכן הוא גיבוי ולא ראשי. פירוט ב-[docs/08-decisions.md](docs/08-decisions.md).
 
+### Gmail (מייל החלטה)
+
+פעם אחת. קבצי ההתחברות נשמרים ב-`secrets/gmail/`, שלא נכנס ל-git ולא לתמונת ה-Docker.
+
+1. [Google Cloud Console](https://console.cloud.google.com/): פרויקט חדש → APIs & Services → Library → **Gmail API** → Enable.
+2. OAuth consent screen: סוג External, שם אפליקציה ומייל, וב-Test users להוסיף את חשבון ה-Gmail שישלח את המיילים.
+3. Credentials → Create credentials → OAuth client ID → סוג **Desktop app** → Download JSON. לשמור בשם `secrets/gmail/gcp-oauth.keys.json`.
+4. `docker compose up --build -d` (התמונה צריכה את `gmail-mcp` וה-worker צריך את התיקייה).
+5. `powershell -ExecutionPolicy Bypass -File scripts\gmail_auth.ps1` → הדפדפן נפתח → כניסה לחשבון → אישור. בסוף נוצר `secrets/gmail/credentials.json`.
+
+ה-worker קולט את ההתחברות בסבב הבא, בלי הפעלה מחדש. אפליקציה במצב Testing מקבלת token ל-7 ימים; אחרי זה מריצים שוב את שלב 5. חשבונות `seed_demo.py` הם `@fit.local`, ולכן לדמו של מייל צריך מועמד שנרשם עם כתובת אמיתית.
+
 ## הרצה מקומית (פיתוח)
 
 ```powershell
@@ -67,7 +80,7 @@ python -m agent.worker    # מסוף 2
 5. ב-`docker compose logs worker` מופיעה שורת `screened ... runtime=deepagents:gemini:...`.
 6. כניסה כ-HR → דשבורד (משרות פתוחות + מספר נרשמים) → משרה → **דירוג מועמדים** → דוח: ציון מפורק, קטעי CV מ-RAG, ראיות Tavily עם קישורים, וטבלה שמראה איזה תת-סוכן הפעיל איזה כלי.
 7. **הערכה חוזרת** עם נימוק → אחרי סבב של ה-worker, "היסטוריית הערכות" מציגה את שני הציונים והשינוי.
-8. החלטה → ציר זמן אירועים מתעדכן. `python -m app.replay` בונה את טבלאות הקריאה מחדש מהאירועים בלבד.
+8. החלטה → ציר זמן אירועים מתעדכן, ואחרי סבב של ה-worker הכרטיס "מייל למועמד" מראה "מייל נשלח ל-..." (Gmail MCP). `python -m app.replay` בונה את טבלאות הקריאה מחדש מהאירועים בלבד.
 
 ## Somee (NFR-5, NFR-8)
 
@@ -86,7 +99,7 @@ Somee מארח **SQL Server בלבד**; Flask וה-worker רצים ב-Docker ו�
 - **RAG:** Chroma עם all-MiniLM-L6-v2 (ONNX). קורות חיים מפוצלים לקטעים; חיפוש סמנטי במסך HR ובסוכן.
 - **MCP Studio:** `extract_resume_profile`, `evaluate_requirement_coverage` — שרת stdio `python -m mcp_studio`, נקרא בפרוטוקול MCP.
 - **Tavily:** שרת `tavily-mcp` דרך MCP.
-- **Gmail:** לא מחובר. ההחלטה נשמרת כאירוע; המייל לא נשלח. הדרישה החיצונית (NFR-9) מתמלאת ב-Tavily.
+- **Gmail:** שרת `gmail-mcp` דרך MCP. אחרי החלטת HR ה-worker שולח למועמד מייל בעברית ורושם `DecisionEmailSent` או `DecisionEmailFailed`. ה-view לא שולח בעצמו. בלי התחברות ל-Gmail המייל נשאר "ממתין לשליחה". הקמה בסעיף [Gmail](#gmail-מייל-החלטה).
 
 ## מסמכי SDAD
 

@@ -6,7 +6,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1
 
-# Node.js runs the Tavily MCP server. Copied from the official image instead of
+# Node.js runs the Tavily and Gmail MCP servers. Copied from the official image instead of
 # apt's npm, which pulls hundreds of Debian packages.
 COPY --from=node /usr/local/bin/node /usr/local/bin/node
 COPY --from=node /usr/local/lib/node_modules /usr/local/lib/node_modules
@@ -31,10 +31,11 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
-# Bake the MiniLM embedding model and the Tavily MCP package into the image
-# so the first CV upload and the first screening do not block on downloads.
+# Bake the MiniLM embedding model and the MCP server packages into the image
+# so the first CV upload, screening and decision email do not block on downloads.
 RUN python -c "from chromadb.utils.embedding_functions import DefaultEmbeddingFunction; DefaultEmbeddingFunction()(['warmup'])"
 RUN npm install -g tavily-mcp@latest
+RUN npm install -g @gongrzhe/server-gmail-autoauth-mcp@1.1.11
 
 COPY . .
 

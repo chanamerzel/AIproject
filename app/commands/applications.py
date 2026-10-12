@@ -116,11 +116,54 @@ def decide(application_id: str, decision: str, reason: str, actor_id: str):
     )
 
 
-def record_email_sent(application_id: str, to_email: str, subject: str):
+MAX_EMAIL_ATTEMPTS = 3
+
+
+def _open_decision_email(application_id: str, decision_event_id: str) -> dict:
+    from app.queries.notifications import OPEN_STATUSES, decision_emails
+
+    state = next(
+        (s for s in decision_emails(application_id) if s["decision_event_id"] == decision_event_id),
+        None,
+    )
+    if not state:
+        raise ValueError("החלטה לא נמצאה")
+    if state["status"] not in OPEN_STATUSES:
+        raise ValueError("המייל של החלטה זו כבר טופל")
+    return state
+
+
+def record_email_sent(application_id: str, decision_event_id: str, to_email: str, subject: str, message_id: str):
+    state = _open_decision_email(application_id, decision_event_id)
     EventStore.append(
         "DecisionEmailSent",
         "Application",
         application_id,
-        {"to": to_email, "subject": subject},
+        {
+            "decision_event_id": decision_event_id,
+            "decision": state["decision"],
+            "to": to_email,
+            "subject": subject,
+            "message_id": message_id,
+        },
+        {"source": "gmail-mcp"},
+    )
+
+
+def record_email_failed(application_id: str, decision_event_id: str, to_email: str, error: str):
+    state = _open_decision_email(application_id, decision_event_id)
+    attempt = state["attempts"] + 1
+    EventStore.append(
+        "DecisionEmailFailed",
+        "Application",
+        application_id,
+        {
+            "decision_event_id": decision_event_id,
+            "decision": state["decision"],
+            "to": to_email,
+            "error": error[:1000],
+            "attempt": attempt,
+            "final": attempt >= MAX_EMAIL_ATTEMPTS,
+        },
         {"source": "gmail-mcp"},
     )

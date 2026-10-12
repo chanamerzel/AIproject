@@ -23,6 +23,12 @@ RECOMMENDATION_LABELS = {
     "reject": "לדחות",
 }
 
+DECISION_LABELS = {
+    "interview": "הזמנה לראיון",
+    "offer": "הצעת עבודה",
+    "reject": "דחייה",
+}
+
 STATUS_BADGE = {
     "ScreeningFailed": "danger",
     "Draft": "secondary",

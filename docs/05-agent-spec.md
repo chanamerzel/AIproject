@@ -41,7 +41,7 @@ Ollama מותקן על Windows (לא בתוך Docker), וה-worker מגיע אל
 
 ## תהליך
 
-`python -m agent.worker` רץ בלולאה (`WORKER_POLL_SECONDS`, ברירת מחדל 20) וקורא ישירות מטבלאות הקריאה.
+`python -m agent.worker` רץ בלולאה (`WORKER_POLL_SECONDS`, ברירת מחדל 20) וקורא ישירות מטבלאות הקריאה. בכל סבב הוא שולח קודם מיילי החלטה שממתינים (Gmail MCP, `agent/notifier.py`, פירוט ב-[02-architecture](02-architecture.md)), ואז מעריך מועמדויות. מייל לא עובר דרך ה-LLM: התבנית קבועה.
 
 1. בדיקה מקדימה: אם אין אף מודל זמין, שגיאה בלוג ואף מועמדות לא נוגעת. אין ציון בלי סוכן.
 2. לכל מועמדות `Submitted`: `ApplicationScreeningStarted`.

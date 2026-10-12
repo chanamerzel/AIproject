@@ -15,6 +15,8 @@ x-app-env: &app-env
   OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:3b}
   OLLAMA_NUM_CTX: ${OLLAMA_NUM_CTX:-16384}
   WORKER_POLL_SECONDS: ${WORKER_POLL_SECONDS:-20}
+  # Wait between attempts to send a decision email that failed (3 attempts in total).
+  EMAIL_RETRY_SECONDS: ${EMAIL_RETRY_SECONDS:-300}
 
 x-app-volumes: &app-volumes
   - fitscreen_data:/app/data
@@ -41,7 +43,12 @@ services:
     image: fitscreen:latest
     command: ["python", "-m", "agent.worker"]
     environment: *app-env
-    volumes: *app-volumes
+    volumes:
+      - fitscreen_data:/app/data
+      - fitscreen_uploads:/app/uploads
+      - fitscreen_chroma:/app/chroma_data
+      # Gmail MCP reads its OAuth client and login token from ~/.gmail-mcp (scripts/gmail_auth.ps1).
+      - ./secrets/gmail:/root/.gmail-mcp
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:

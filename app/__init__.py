@@ -4,7 +4,7 @@ from pathlib import Path
 from flask import Flask, render_template
 
 from app.db import init_db
-from app.labels import RECOMMENDATION_LABELS, ROLE_LABELS, STATUS_BADGE, STATUS_LABELS
+from app.labels import DECISION_LABELS, RECOMMENDATION_LABELS, ROLE_LABELS, STATUS_BADGE, STATUS_LABELS
 
 
 def create_app(test_config=None):
@@ -60,6 +60,7 @@ def create_app(test_config=None):
             "STATUS_LABELS": STATUS_LABELS,
             "STATUS_BADGE": STATUS_BADGE,
             "RECOMMENDATION_LABELS": RECOMMENDATION_LABELS,
+            "DECISION_LABELS": DECISION_LABELS,
         }
 
     @app.errorhandler(403)

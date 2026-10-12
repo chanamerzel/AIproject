@@ -29,7 +29,7 @@
 | NFR-6 | הטמעת CV + חיפוש סמנטי | Chroma + all-MiniLM-L6-v2, פיצול לקטעים, דירוג מועמדים (F9); hash רק בבדיקות | מולא |
 | NFR-7 | CQRS/MVC | `views` / `commands` / `queries` | מולא |
 | NFR-8 | ענן + Event Sourcing | `events` append-only ב-Somee + פרויקציות + `app.replay` + היסטוריית הערכות מהאירועים (F10) | מולא |
-| NFR-9 | שירותים חיצוניים ב-MCP | Tavily דרך `tavily-mcp` (stdio). Gmail: לא מחובר | מולא (Tavily) |
+| NFR-9 | שירותים חיצוניים ב-MCP | Tavily דרך `tavily-mcp` (stdio) בסוכן. Gmail דרך `gmail-mcp` (`@gongrzhe/server-gmail-autoauth-mcp`, stdio): ה-worker שולח מייל החלטה למועמד ורושם `DecisionEmailSent` / `DecisionEmailFailed` | מולא (Tavily). Gmail: הקוד והבדיקות קיימים, ההתחברות ל-Google בקונטיינר נבדקה עד ה-callback; שליחה אמיתית ממתינה ל-OAuth client של המשתמשת |
 | NFR-10 | שני Tools מ-MCP Studio | שרת `python -m mcp_studio`, נקרא בפרוטוקול MCP | מולא |
 | NFR-11 | Deep Agent + RAG + Tavily | `create_deep_agent` עם מתזמר ותתי-סוכנים `cv-analyst` ו-`web-researcher` (F11); Gemini, Ollama כגיבוי | מולא |
 | NFR-12 | GitHub | [smerzel/AIproject](https://github.com/smerzel/AIproject), CI ב-`.github/workflows/tests.yml` (sqlite, sql-server, docker) | מולא |

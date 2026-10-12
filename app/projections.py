@@ -20,7 +20,8 @@ def apply_event(event: dict):
         "InterviewScheduled": _status,
         "ApplicationRejected": _rejected,
         "OfferExtended": _offer,
-        "DecisionEmailSent": _email_sent,
+        "DecisionEmailSent": _email_outcome,
+        "DecisionEmailFailed": _email_outcome,
     }
     handler = handlers.get(etype)
     if handler:
@@ -146,5 +147,6 @@ def _offer(event, payload):
     )
 
 
-def _email_sent(event, payload):
+def _email_outcome(event, payload):
+    # No read-model table: app/queries/notifications.py derives email status from the event stream.
     return

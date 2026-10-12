@@ -53,7 +53,7 @@ flowchart TB
 ## תהליכים
 
 1. **Web (Flask, gunicorn)**: ממשק משתמש. יש גם API פנימי מוגן במפתח (`/internal/...`, כותרת `X-Agent-Key`) למקרה שסוכן ירוץ על מכונה בלי גישה ישירה למסד.
-2. **Worker (Deep Agent)**: process נפרד, קונטיינר `worker`. **קורא רשומות ממסד הנתונים** (`pending_screening`), מריץ `deepagents` עם מתזמר ושני תתי-סוכנים, כלי MCP Studio, Tavily MCP ו-RAG, וכותב אירועים דרך ה-Commands.
+2. **Worker (Deep Agent)**: process נפרד, קונטיינר `worker`. **קורא רשומות ממסד הנתונים** (`pending_screening`), מריץ `deepagents` עם מתזמר ושני תתי-סוכנים, כלי MCP Studio, Tavily MCP ו-RAG, וכותב אירועים דרך ה-Commands. באותה לולאה הוא גם שולח מיילי החלטה דרך Gmail MCP (`agent/notifier.py`).
 3. **Somee SQL Server**: Event Store ופרויקציות בענן.
 4. **Chroma**: וקטורי CV על volume משותף ל-web ול-worker (`/app/chroma_data`).
 5. **LLM**: Gemini (ענן), ו-Ollama על Windows כגיבוי (`host.docker.internal:11434`).
@@ -100,6 +100,31 @@ sequenceDiagram
 
 תהליך נפרד חובה: `python -m agent.worker`. Flask לבדו לא מעריך מועמדים.
 
+## זרימת מייל החלטה (Gmail MCP)
+
+```mermaid
+sequenceDiagram
+  participant HR as HR בדפדפן
+  participant V as decide_route
+  participant DB as Somee
+  participant W as agent.worker
+  participant G as Gmail MCP
+  HR->>V: POST החלטה + נימוק
+  V->>DB: InterviewScheduled / ApplicationRejected / OfferExtended
+  V-->>HR: "המייל יישלח בתהליך הרקע"
+  W->>DB: pending_decision_emails (מאירועי ההחלטה)
+  W->>G: send_email (stdio, gmail-mcp)
+  G-->>W: Email sent successfully with ID
+  W->>DB: DecisionEmailSent או DecisionEmailFailed
+```
+
+- ה-view לא שולח מייל. הוא רק מריץ את ה-Command `decide`.
+- ה-worker מריץ קודם את שלב המיילים ואחר כך את ההערכות, כי הערכה יכולה לקחת דקות.
+- בלי `gcp-oauth.keys.json` או בלי `credentials.json` ב-`secrets/gmail` (מותקן ב-worker כ-`/root/.gmail-mcp`), ה-worker כותב שורת לוג אחת, לא רושם כלום, והמייל נשאר ממתין.
+- כישלון נרשם כ-`DecisionEmailFailed`. ניסיון נוסף אחרי `EMAIL_RETRY_SECONDS` (ברירת מחדל 300), עד 3 ניסיונות.
+- תבניות המייל קבועות בעברית (`agent/notifier.py`): נושא וגוף לפי סוג ההחלטה, עם שם המשרה, שם המועמד ונימוק ה-HR. נשלח כטקסט וכ-HTML מימין לשמאל.
+- התחברות חד-פעמית: `scripts\gmail_auth.ps1` מריץ `gmail-mcp auth` בקונטיינר עם פורט 3000 פתוח, כי Google מחזיר את הדפדפן ל-`http://localhost:3000/oauth2callback`.
+
 ## אבטחה
 
 - Cookie session.
@@ -112,7 +137,7 @@ sequenceDiagram
 |---|---|---|
 | Somee | TDS/SQL | Event Store + read models |
 | Tavily | MCP (stdio, `tavily-mcp`) | חיפוש אינטרנט |
-| Gmail | MCP | מייל החלטה (לא מחובר; ההחלטה נשמרת כאירוע) |
+| Gmail | MCP (stdio, `gmail-mcp`, OAuth) | מייל החלטה למועמד, נשלח מה-worker |
 | Gemini, Ollama כגיבוי | LLM | מודל הסוכן |
 
 Flask **לא** מאוחסן ב-Somee (Somee לא מריץ Python על hosting חינמי).

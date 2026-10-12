@@ -4,17 +4,11 @@ from uuid import uuid4
 
 from flask import Blueprint, current_app, flash, redirect, render_template, request, url_for
 
-from app.commands.applications import (
-    RESCREENABLE,
-    decide,
-    record_email_sent,
-    request_rescreen,
-    submit_application,
-)
+from app.commands.applications import RESCREENABLE, decide, request_rescreen, submit_application
 from app.cv_text import extract_text
 from app.event_store import EventStore
 from app.queries.applications import get_application, list_for_candidate, screening_history
-from app.queries.identity import get_user
+from app.queries.notifications import decision_emails
 from app.security import current_user, login_required, role_required
 
 bp = Blueprint("applications", __name__, url_prefix="/applications")
@@ -79,6 +73,7 @@ def detail(application_id):
         timeline=timeline,
         last_failure=last_failure,
         history=screening_history(application_id) if is_staff else [],
+        emails=decision_emails(application_id) if is_staff else [],
         can_rescreen=is_staff and row["status"] in RESCREENABLE,
     )
 
@@ -100,20 +95,9 @@ def decide_route(application_id):
     decision = request.form["decision"]
     reason = request.form.get("reason", "").strip()
     try:
-        decide(application_id, decision, reason, current_user()["id"])
+            decide(application_id, decision, reason, current_user()["id"])
     except ValueError as exc:
         flash(str(exc), "danger")
         return redirect(url_for("applications.detail", application_id=application_id))
-    row = get_application(application_id)
-    candidate = get_user(row["candidate_id"])
-    subject = {
-        "interview": f"הזמנה לראיון — {row['job_title']}",
-        "reject": f"עדכון לגבי המועמדות — {row['job_title']}",
-        "offer": f"הצעת עבודה — {row['job_title']}",
-    }[decision]
-    from agent.tools_bridge import send_decision_email
-
-    send_decision_email(candidate["email"], subject, reason or subject)
-    record_email_sent(application_id, candidate["email"], subject)
-    flash("ההחלטה נשמרה כאירוע. מייל נשלח או נרשם בלוג אם Gmail MCP כבוי.", "success")
+    flash("ההחלטה נשמרה כאירוע. המייל למועמד יישלח דרך Gmail MCP בתהליך הרקע (agent.worker).", "success")
     return redirect(url_for("applications.detail", application_id=application_id))

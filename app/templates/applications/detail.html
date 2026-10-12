@@ -130,6 +130,26 @@
     {% endif %}
   </div>
   <div class="col-lg-5">
+    {% if emails %}
+    <div class="card p-4 mb-3">
+      <h2 class="h5">מייל למועמד (Gmail MCP)</h2>
+      <ul class="list-unstyled mb-0">
+        {% for m in emails %}
+        <li class="mb-2">
+          <strong>{{ DECISION_LABELS.get(m.decision, m.decision) }}</strong>
+          <span class="small text-secondary">· {{ m.decided_at[:16] | replace('T', ' ') }}</span>
+          <div class="small">
+            {% if m.status == 'sent' %}<span class="text-success">מייל נשלח ל-{{ m.to }}</span>{% if m.subject %} · {{ m.subject }}{% endif %}
+            {% elif m.status == 'failed_final' %}<span class="text-danger">שליחת המייל נכשלה אחרי {{ m.attempts }} ניסיונות: {{ m.error }}</span>
+            {% elif m.status == 'failed' %}<span class="text-warning">ניסיון {{ m.attempts }} נכשל, ה-worker ינסה שוב: {{ m.error }}</span>
+            {% elif m.status == 'legacy' %}<span class="text-secondary">נרשם לפני חיבור Gmail; המייל לא נשלח בפועל</span>
+            {% else %}<span class="text-secondary">ממתין לשליחה. ה-worker שולח דרך Gmail MCP.</span>{% endif %}
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
     <div class="card p-4">
       <h2 class="h5">ציר זמן אירועים</h2>
       <ol class="mb-0">

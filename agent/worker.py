@@ -1,4 +1,4 @@
-"""Independent process: reads applications from the database, screens, writes events."""
+"""Independent process: reads the database, screens applications, emails HR decisions, writes events."""
 
 from __future__ import annotations
 
@@ -90,6 +90,7 @@ def screen_pending() -> int:
 
 def main(argv=None) -> int:
     from agent.deep_agent import describe_runtime
+    from agent.notifier import notify_pending
 
     parser = argparse.ArgumentParser(description="FitScreen screening worker — reads DB")
     parser.add_argument("--once", action="store_true")
@@ -97,15 +98,17 @@ def main(argv=None) -> int:
     seconds = int(os.getenv("WORKER_POLL_SECONDS", "20"))
     logger.info("agent runtime: %s", describe_runtime())
     if args.once:
-        n = screen_pending()
-        logger.info("processed %s applications", n)
+        logger.info("sent %s decision emails", notify_pending())
+        logger.info("processed %s applications", screen_pending())
         return 0
     logger.info("worker reading database every %ss", seconds)
     while True:
-        try:
-            screen_pending()
-        except Exception:
-            logger.exception("poll failed")
+        # Emails first: a screening can take minutes and should not delay a decision email.
+        for step in (notify_pending, screen_pending):
+            try:
+                step()
+            except Exception:
+                logger.exception("%s failed", step.__name__)
         time.sleep(seconds)
 
 

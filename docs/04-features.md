@@ -58,7 +58,9 @@ flowchart LR
 
 - HR רואה דוח + ציר זמן אירועים.
 - החלטה Interview / Reject / Offer.
-- שליחת מייל (Gmail MCP או לוג אם אין OAuth).
+- ה-view רושם רק את אירוע ההחלטה. ה-worker שולח למועמד מייל בעברית דרך Gmail MCP (`send_email`) ורושם `DecisionEmailSent` או `DecisionEmailFailed`. מייל אחד לכל החלטה, עד 3 ניסיונות.
+- בלי התחברות ל-Gmail המייל נשאר ממתין ושום דבר לא נרשם.
+- דף המועמדות מראה ל-HR לכל החלטה: נשלח ל-..., ממתין לשליחה, או נכשל ולמה.
 
 ## F9 CandidateRanking: FR-4.3, NFR-6
 
