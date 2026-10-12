@@ -4,10 +4,16 @@ from uuid import uuid4
 
 from flask import Blueprint, current_app, flash, redirect, render_template, request, url_for
 
-from app.commands.applications import decide, record_email_sent, submit_application
+from app.commands.applications import (
+    RESCREENABLE,
+    decide,
+    record_email_sent,
+    request_rescreen,
+    submit_application,
+)
 from app.cv_text import extract_text
 from app.event_store import EventStore
-from app.queries.applications import get_application, list_for_candidate
+from app.queries.applications import get_application, list_for_candidate, screening_history
 from app.queries.identity import get_user
 from app.security import current_user, login_required, role_required
 
@@ -72,7 +78,20 @@ def detail(application_id):
         report=report,
         timeline=timeline,
         last_failure=last_failure,
+        history=screening_history(application_id) if is_staff else [],
+        can_rescreen=is_staff and row["status"] in RESCREENABLE,
     )
+
+
+@bp.route("/<application_id>/rescreen", methods=["POST"])
+@role_required("hr", "hiring_manager")
+def rescreen_route(application_id):
+    try:
+        request_rescreen(application_id, request.form.get("reason", ""), current_user()["id"])
+        flash("הבקשה נשמרה כאירוע. הסוכן יעריך את המועמדות מחדש בסבב הקרוב.", "success")
+    except ValueError as exc:
+        flash(str(exc), "danger")
+    return redirect(url_for("applications.detail", application_id=application_id))
 
 
 @bp.route("/<application_id>/decide", methods=["POST"])

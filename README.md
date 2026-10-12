@@ -18,7 +18,7 @@ flowchart LR
   W --> CH[(Chroma - MiniLM embeddings)]
   W --> MCP[MCP Studio server]
   W --> TV[Tavily MCP]
-  W --> LLM[Gemini או Ollama]
+  W --> LLM[Gemini, Ollama כגיבוי]
 ```
 
 ## הרצה ב-Docker (מסלול ההגשה)
@@ -34,9 +34,16 @@ docker compose exec web python seed_demo.py
 docker compose logs -f worker
 ```
 
-- אפליקציה: http://127.0.0.1:5000 · בריאות: http://127.0.0.1:5000/health (מציג `mssql` מול `sqlite`, ספירות טבלאות, ומודל ה-embedding)
+- אפליקציה: http://127.0.0.1:5000 (או `WEB_PORT` מ-`.env`) · בריאות: `/health` (מציג `mssql` מול `sqlite`, ספירות טבלאות, ומודל ה-embedding)
 - `web` ו-`worker` הם שני תהליכים נפרדים מאותו אימג'. הסוכן לא רץ בתוך בקשת HTTP.
-- Ollama במקום Gemini: `LLM_PROVIDER=ollama` ב-`.env`, ואז `docker compose --profile ollama up -d` ו-`docker compose exec ollama ollama pull qwen2.5:3b`.
+
+### מודל השפה של הסוכן
+
+`LLM_PROVIDER=auto` (ברירת מחדל): Gemini, ואם אין מפתח או שההרצה נכשלה, Ollama שמותקן על Windows.
+
+- Ollama: התקנה מ-[ollama.com/download/windows](https://ollama.com/download/windows), ואז `ollama pull qwen2.5:3b`. ה-worker מגיע אליו דרך `OLLAMA_BASE_URL=http://host.docker.internal:11434`.
+- `LLM_PROVIDER=gemini` או `LLM_PROVIDER=ollama` מכריחים מודל אחד.
+- על מחשב בלי כרטיס מסך Ollama איטי מאוד (יותר מ-10 דקות להערכה), ולכן הוא גיבוי ולא ראשי. פירוט ב-[docs/08-decisions.md](docs/08-decisions.md).
 
 ## הרצה מקומית (פיתוח)
 
@@ -57,9 +64,10 @@ python -m agent.worker    # מסוף 2
 2. כניסה כ-HR → משרה חדשה (נשמרת כטיוטה).
 3. כניסה כמנהל גיוס → אישור פתיחה.
 4. כניסה כמועמד → חיפוש "Flask" → פרטי משרה → העלאת CV.
-5. ב-`docker compose logs worker` מופיעה שורת `screened ... runtime=deepagents:gemini`.
-6. כניסה כ-HR → דשבורד (משרות פתוחות + מספר נרשמים) → טבלת מועמדים → דוח: ציון מפורק, קטעי CV מ-RAG, ראיות Tavily עם קישורים, הכלים שהסוכן הפעיל.
-7. החלטה → ציר זמן אירועים מתעדכן. `python -m app.replay` בונה את טבלאות הקריאה מחדש מהאירועים בלבד.
+5. ב-`docker compose logs worker` מופיעה שורת `screened ... runtime=deepagents:gemini:...`.
+6. כניסה כ-HR → דשבורד (משרות פתוחות + מספר נרשמים) → משרה → **דירוג מועמדים** → דוח: ציון מפורק, קטעי CV מ-RAG, ראיות Tavily עם קישורים, וטבלה שמראה איזה תת-סוכן הפעיל איזה כלי.
+7. **הערכה חוזרת** עם נימוק → אחרי סבב של ה-worker, "היסטוריית הערכות" מציגה את שני הציונים והשינוי.
+8. החלטה → ציר זמן אירועים מתעדכן. `python -m app.replay` בונה את טבלאות הקריאה מחדש מהאירועים בלבד.
 
 ## Somee (NFR-5, NFR-8)
 
@@ -73,7 +81,7 @@ Somee מארח **SQL Server בלבד**; Flask וה-worker רצים ב-Docker ו�
 
 ## Deep Agent, RAG ו-MCP (NFR-6, 9, 10, 11)
 
-- **Deep Agent:** `deepagents.create_deep_agent` ב-[agent/deep_agent.py](agent/deep_agent.py). הסוכן מתכנן ומפעיל ארבעה כלים; הדוח שלו מוצלב מול פלט הכלים, וכלי שדילג עליו מופעל ומסומן.
+- **Deep Agent:** `deepagents.create_deep_agent` ב-[agent/deep_agent.py](agent/deep_agent.py). מתזמר מתכנן ומאציל לשני תתי-סוכנים: `cv-analyst` (MCP Studio + RAG) ו-`web-researcher` (Tavily). הדוח מוצלב מול פלט הכלים, וכלי שדילגו עליו מופעל ומסומן.
 - **בלי מודל LLM ה-worker לא מעריך** — הוא כותב שגיאה בלוג ומשאיר את המועמדות בתור. אין ציון "שקט" בלי סוכן.
 - **RAG:** Chroma עם all-MiniLM-L6-v2 (ONNX). קורות חיים מפוצלים לקטעים; חיפוש סמנטי במסך HR ובסוכן.
 - **MCP Studio:** `extract_resume_profile`, `evaluate_requirement_coverage` — שרת stdio `python -m mcp_studio`, נקרא בפרוטוקול MCP.
@@ -88,10 +96,11 @@ Somee מארח **SQL Server בלבד**; Flask וה-worker רצים ב-Docker ו�
 | [docs/01-requirements.md](docs/01-requirements.md) | FR/NFR וסטטוס |
 | [docs/02-architecture.md](docs/02-architecture.md) | MVC + CQRS + תהליכים |
 | [docs/03-data-and-events.md](docs/03-data-and-events.md) | Event Store ופרויקציות |
-| [docs/04-features.md](docs/04-features.md) | F1–F8 |
+| [docs/04-features.md](docs/04-features.md) | F1–F11 |
 | [docs/05-agent-spec.md](docs/05-agent-spec.md) | Deep Agent |
 | [docs/06-testing.md](docs/06-testing.md) | בדיקות |
-| [docs/07-traceability.md](docs/07-traceability.md) | דרישה → קוד |
+| [docs/07-traceability.md](docs/07-traceability.md) | דרישה → קוד → בדיקה |
+| [docs/08-decisions.md](docs/08-decisions.md) | החלטות טכניות: אפשרויות, בחירה, נימוק |
 
 Skill מ-skills.sh: `.agents/skills/flask-python`. Skills מקומיים: `.cursor/skills/`. Rule: `.cursor/rules/sdad.mdc`.
 

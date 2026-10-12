@@ -11,6 +11,10 @@ flowchart LR
   F4 --> F6[F6 SemanticMatch]
   F4 --> F7[F7 AgentScreening]
   F7 --> F8[F8 Decision]
+  F7 --> F9[F9 CandidateRanking]
+  F6 --> F9
+  F7 --> F10[F10 Rescreen]
+  F7 --> F11[F11 DeepAgentSubagents]
 ```
 
 ## F1 Identity — FR-2, FR-3
@@ -55,3 +59,25 @@ flowchart LR
 - HR רואה דוח + ציר זמן אירועים.
 - החלטה Interview / Reject / Offer.
 - שליחת מייל (Gmail MCP או לוג אם אין OAuth).
+
+## F9 CandidateRanking: FR-4.3, NFR-6
+
+- דף `/jobs/<id>/ranking`, ל-HR ולמנהל גיוס בלבד.
+- Query בלבד (`app/queries/ranking.py`): מועמדים שהוערכו ממוינים לפי ציון הסוכן. מי שעוד לא הוערך מדורג אחריהם לפי דמיון וקטורי חי מ-Chroma.
+- לכל מועמד: ציון כולל, כיסוי דרישות, התאמה סמנטית, ראיות רשת, המלצה, כישורים חסרים. בראש הדף: כמה להתקדם / להמתין / לדחות.
+- אין אירוע: הפיצ'ר קורא בלבד.
+
+## F10 Rescreen: FR-5, NFR-8
+
+- HR או מנהל גיוס מבקשים הערכה חוזרת עם נימוק, למועמדות `Screened` או `ScreeningFailed`.
+- Command `request_rescreen` → אירוע `ApplicationRescreenRequested` → פרויקציה מחזירה ל-`Submitted`, וה-worker מעריך שוב.
+- הבקשה מאפסת את מונה הכישלונות (3 ניסיונות חדשים).
+- דף המועמדות מציג "היסטוריית הערכות" שנבנית מזרם האירועים: כל ציון קודם, השינוי ביניהם, ומי ביקש ולמה. שום הערכה לא נמחקת.
+
+## F11 DeepAgentSubagents: NFR-11
+
+- הסוכן הראשי מתכנן (`write_todos`) ומאציל דרך הכלי `task` לשני תתי-סוכנים:
+  - `cv-analyst`: כלי MCP Studio + RAG.
+  - `web-researcher`: Tavily MCP.
+- כל קריאה לכלי נרשמת עם שם הסוכן שקרא לה (`delegation`), ומוצגת בדוח ל-HR.
+- מודל: `LLM_PROVIDER=auto` = Gemini, ואם אין מפתח או שההרצה נכשלה, Ollama מקומי.

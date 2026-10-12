@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}דירוג מועמדים · {{ job.title }}{% endblock %}
+{% block body %}
+<div class="d-flex justify-content-between align-items-start mb-3">
+  <div>
+    <h1 class="h3 mb-1">דירוג מועמדים: {{ job.title }}</h1>
+    <p class="text-secondary mb-0">
+      {{ ranking.screened }} מתוך {{ ranking.total }} הוערכו על ידי הסוכן.
+      מועמדים שעוד לא הוערכו מדורגים לפי דמיון וקטורי לתיאור המשרה (Chroma).
+    </p>
+  </div>
+  <a class="btn btn-outline-secondary" href="{{ url_for('jobs.detail', job_id=job.id) }}">חזרה למשרה</a>
+</div>
+
+<div class="d-flex flex-wrap gap-3 mb-3">
+  {% for key, count in ranking.summary.items() %}
+  <div class="border rounded p-2 text-center bg-white" style="min-width:110px">
+    <div class="small text-secondary">{{ RECOMMENDATION_LABELS[key] }}</div>
+    <div class="fs-4 fw-bold">{{ count }}</div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead>
+        <tr>
+          <th>#</th><th>מועמד</th><th>ציון כולל</th><th>כיסוי דרישות</th><th>התאמה סמנטית</th>
+          <th>ראיות רשת</th><th>דמיון וקטורי עכשיו</th><th>המלצת סוכן</th><th>סטטוס</th><th>חסר</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in ranking['items'] %}
+        <tr>
+          <td class="fw-bold">{{ r.rank }}</td>
+          <td>{{ r.candidate_name }}</td>
+          <td>
+            {% if r.overall_score is not none %}
+            <div class="d-flex align-items-center gap-2">
+              <span class="fw-bold">{{ r.overall_score }}</span>
+              <div class="progress flex-grow-1" style="height:6px;min-width:60px">
+                <div class="progress-bar" style="width: {{ r.overall_score }}%"></div>
+              </div>
+            </div>
+            {% else %}—{% endif %}
+          </td>
+          <td>{{ r.skill_coverage if r.skill_coverage is not none else '—' }}</td>
+          <td>{{ r.semantic_fit if r.semantic_fit is not none else '—' }}</td>
+          <td>{{ r.web_score if r.web_score is not none else '—' }}</td>
+          <td>{{ r.semantic_live ~ '%' if r.semantic_live is not none else '—' }}</td>
+          <td>{{ RECOMMENDATION_LABELS.get(r.recommendation, '—') }}</td>
+          <td><span class="badge text-bg-{{ STATUS_BADGE[r.status] }}">{{ STATUS_LABELS[r.status] }}</span></td>
+          <td class="small">{{ r.missing_skills | join(', ') or '—' }}</td>
+          <td><a href="{{ url_for('applications.detail', application_id=r.application_id) }}">דוח</a></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="11" class="text-secondary">אין מועמדויות למשרה זו.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

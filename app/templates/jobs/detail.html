@@ -19,6 +19,9 @@
     <form method="post" action="{{ url_for('jobs.close_route', job_id=job.id) }}">
       <button class="btn btn-outline-dark" type="submit">סגירת משרה</button>
     </form>
+    {% endif %}
+    {% if current_user.role in ['hr','hiring_manager'] %}
+    <a class="btn btn-primary" href="{{ url_for('jobs.ranking', job_id=job.id) }}">דירוג מועמדים</a>
     <a class="btn btn-outline-primary" href="{{ url_for('jobs.semantic', job_id=job.id) }}">התאמה סמנטית</a>
     {% endif %}
   </div>

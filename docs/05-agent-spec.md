@@ -2,30 +2,59 @@
 
 ## תשתית
 
-- **LangChain Deep Agents** — `deepagents.create_deep_agent(model, tools, system_prompt)` ב-`agent/deep_agent.py`.
-- מודל: Gemini (`LLM_PROVIDER=gemini`, `GEMINI_API_KEY`) או Ollama ב-Docker (`LLM_PROVIDER=ollama`, פרופיל `ollama` ב-compose).
+- **LangChain Deep Agents**: `deepagents.create_deep_agent(model, tools=[], system_prompt, subagents=[...])` ב-`agent/deep_agent.py`.
 - הכלים `extract_resume_profile` ו-`evaluate_requirement_coverage` נקראים **רק** דרך MCP stdio (`python -m mcp_studio`).
 - חיפוש רשת: שרת **Tavily MCP** (`tavily-mcp`), לא REST ישיר. שם הכלי מזוהה דינמית (`tavily_search` / `tavily-search`).
 - RAG: Chroma עם all-MiniLM-L6-v2. קורות חיים נשמרים כמסמך מלא (לדירוג) וכקטעים (לציטוטים).
 
+## מבנה: מתזמר ושני תתי-סוכנים
+
+```mermaid
+flowchart LR
+    Orchestrator["Orchestrator: write_todos, task"] --> CvAnalyst[cv-analyst]
+    Orchestrator --> WebResearcher[web-researcher]
+    CvAnalyst --> Studio["MCP Studio: extract_resume_profile, evaluate_requirement_coverage"]
+    CvAnalyst --> Rag["rag_cv_against_job: Chroma"]
+    WebResearcher --> Tavily["tavily_web_search: Tavily MCP"]
+    Orchestrator --> Report[JSON report]
+    Report --> Finalize["_finalize: cross-check with tool trace"]
+```
+
+- **Orchestrator**: אין לו כלי סינון משלו. הוא כותב תוכנית, מאציל ב-`task`, ומחבר את התשובות לדוח JSON.
+- **cv-analyst**: שלושת כלי הניתוח. הכלים לא מקבלים את טקסט ה-CV מהמודל. הם קוראים אותו מהמועמדות עצמה, כך שהמודל לא יכול לשנות את מה שנבדק.
+- **web-researcher**: 1–3 חיפושי Tavily לאימות המעסיק האחרון והטכנולוגיה המרכזית של המשרה.
+- כל קריאה לכלי נרשמת ב-trace עם שם הסוכן שקרא לה, ונשמרת בדוח כ-`delegation`.
+
+## בחירת מודל
+
+| `LLM_PROVIDER` | התנהגות |
+|---|---|
+| `auto` (ברירת מחדל) | Gemini. אם אין מפתח או שההרצה נכשלה: Ollama מקומי, אם הוא עונה והמודל הורד |
+| `gemini` | Gemini בלבד (`GEMINI_API_KEY`, `GEMINI_MODEL`) |
+| `ollama` | Ollama בלבד (`OLLAMA_BASE_URL`, `OLLAMA_MODEL`, `OLLAMA_NUM_CTX`) |
+
+Ollama מותקן על Windows (לא בתוך Docker), וה-worker מגיע אליו דרך `host.docker.internal`. `OLLAMA_NUM_CTX=16384` נדרש כי ההנחיות והכלים של deepagents לא נכנסים בהקשר ברירת המחדל של Ollama. על מעבד בלבד, בלי כרטיס מסך, הערכה ב-Ollama לוקחת יותר מ-10 דקות, ולכן Gemini ראשי.
+
 ## למה process נפרד
 
-המפרט דורש process עצמאי. הערכה כוללת רשת, RAG ו-LLM ולוקחת שניות עד דקות. בתוך POST של הדפדפן המשתמש ייתקע והפרדת CQRS תישבר. ב-Docker הסוכן הוא שירות `worker` נפרד מ-`web`.
+המפרט דורש process עצמאי. הערכה כוללת רשת, RAG ו-LLM ולוקחת עד כמה דקות. בתוך POST של הדפדפן המשתמש ייתקע, והפרדת CQRS תישבר. ב-Docker הסוכן הוא שירות `worker` נפרד מ-`web`.
 
 ## תהליך
 
 `python -m agent.worker` רץ בלולאה (`WORKER_POLL_SECONDS`, ברירת מחדל 20) וקורא ישירות מטבלאות הקריאה.
 
-1. בדיקה מקדימה: אם אין מודל LLM מוגדר — שגיאה בלוג, אף מועמדות לא נוגעת. אין ציון בלי סוכן.
+1. בדיקה מקדימה: אם אין אף מודל זמין, שגיאה בלוג ואף מועמדות לא נוגעת. אין ציון בלי סוכן.
 2. לכל מועמדות `Submitted`: `ApplicationScreeningStarted`.
-3. הטמעת ה-CV ב-Chroma (idempotent — מבטיח RAG גם אם ההטמעה בזמן ההגשה נכשלה).
-4. הסוכן מתכנן ומפעיל: `extract_resume_profile` → `evaluate_requirement_coverage` → `rag_cv_against_job` → `tavily_web_search` (לפחות פעם אחת).
-5. הסוכן מחזיר JSON. המערכת מצליבה אותו מול פלט הכלים (`_finalize`):
+3. הטמעת ה-CV ב-Chroma (idempotent: מבטיח RAG גם אם ההטמעה בזמן ההגשה נכשלה).
+4. המתזמר מתכנן ומאציל ל-cv-analyst ול-web-researcher.
+5. המתזמר מחזיר JSON. המערכת מצליבה אותו מול ה-trace (`_finalize`):
    - ציוני הרכיבים נלקחים מהכלים, לא ממה שהמודל טען.
-   - כלי חובה שהסוכן דילג עליו מופעל ונרשם ב-`tools_skipped_by_agent`.
+   - כלי חובה שאף סוכן לא הפעיל מופעל ונרשם ב-`tools_skipped_by_agent`.
+   - JSON לא תקין מהמודל: הציונים מחושבים מהכלים ו-`agent_report_valid=false`.
    - כישלון Tavily נרשם בפערים, והמשקל מחולק מחדש בין הרכיבים הקיימים.
 6. `ApplicationScreeningCompleted` עם הדוח המלא.
 7. כישלון: `ApplicationScreeningFailed`. אחרי 3 כישלונות הסטטוס `ScreeningFailed` ו-HR רואה את השגיאה.
+8. הערכה חוזרת (F10): `ApplicationRescreenRequested` מחזיר לתור ומאפס את מונה הכישלונות.
 
 ## פורמט הדוח
 
@@ -37,14 +66,17 @@
   "web_score": 0,
   "recommendation": "advance|hold|reject",
   "agent_recommendation": "advance|hold|reject",
+  "agent_report_valid": true,
   "summary": "",
   "strengths": [],
   "gaps": [],
   "web_evidence": [{"title": "", "url": "", "finding": ""}],
   "cv_excerpts": [],
+  "profile": {},
   "tools_used": [],
   "tools_skipped_by_agent": [],
-  "runtime": "deepagents:gemini"
+  "delegation": [{"tool": "extract_resume_profile", "by": "cv-analyst"}],
+  "runtime": "deepagents:gemini:gemini-2.5-flash"
 }
 ```
 
@@ -55,4 +87,8 @@
 
 ## מצב בדיקות
 
-`FITSCREEN_AGENT_MODE=pipeline` מריץ את אותם כלים בלי LLM. מיועד לסוויטת הבדיקות בלבד. בדיקה נפרדת מריצה את לולאת `create_deep_agent` עם מודל מתוסרט ומוודאת שהכלים נקראו ושהדוח הוצלב.
+`FITSCREEN_AGENT_MODE=pipeline` מריץ את אותם כלים בלי LLM, לסוויטת הבדיקות בלבד. בדיקה נפרדת מריצה את `create_deep_agent` עם מודל מתוסרט שעובר orchestrator → cv-analyst → web-researcher, ומוודאת שכל כלי נקרא על ידי תת-הסוכן הנכון ושהדוח הוצלב.
+
+## הרצה אמיתית שנבדקה
+
+Gemini 2.5 Flash, קורות חיים `samples/cv_python.txt` מול משרת Python Backend: 157 שניות, ציון 83, `advance`, אף כלי לא דולג. cv-analyst הפעיל את 3 הכלים, ו-web-researcher ביצע 4 חיפושים.

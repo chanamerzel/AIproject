@@ -50,12 +50,61 @@
         {% endfor %}
       </ul>
       {% endif %}
+      {% if report.delegation %}
+      <h3 class="h6 mt-3">חלוקת העבודה בין הסוכנים (Deep Agent)</h3>
+      <table class="table table-sm small mb-2">
+        <thead><tr><th>תת-סוכן</th><th>כלי</th></tr></thead>
+        <tbody>
+          {% for step in report.delegation %}
+          <tr><td>{{ step.by }}</td><td><code>{{ step.tool }}</code></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
       <p class="small text-secondary mb-0 mt-2">
         מנוע: {{ report.runtime }} · כלים: {{ (report.tools_used or []) | join(', ') }}
         {% if report.tools_skipped_by_agent %}· הסוכן דילג והמערכת השלימה: {{ report.tools_skipped_by_agent | join(', ') }}{% endif %}
+        {% if report.agent_report_valid == false %}· הסוכן לא החזיר דוח תקין; הציונים חושבו מתוצאות הכלים{% endif %}
       </p>
       {% endif %}
     </div>
+    {% if can_rescreen %}
+    <div class="card p-4 mb-3">
+      <h2 class="h5">הערכה חוזרת</h2>
+      <form method="post" action="{{ url_for('applications.rescreen_route', application_id=application.id) }}">
+        <label class="form-label" for="rescreen-reason">למה נדרשת הערכה חוזרת? (נשמר באירוע)</label>
+        <input class="form-control mb-2" id="rescreen-reason" name="reason" required
+               placeholder="למשל: עודכנו דרישות המשרה, או ההערכה הקודמת נכשלה">
+        <button class="btn btn-outline-primary" type="submit">שליחה לסוכן מחדש</button>
+      </form>
+    </div>
+    {% endif %}
+    {% if history %}
+    <div class="card p-4 mb-3">
+      <h2 class="h5">היסטוריית הערכות</h2>
+      <p class="small text-secondary">נבנית מאירועי ה-Event Store. שום הערכה קודמת לא נמחקת.</p>
+      <table class="table table-sm small mb-0">
+        <thead><tr><th>מתי</th><th>מה</th><th>ציון</th><th>שינוי</th><th>המלצה</th><th>מנוע</th></tr></thead>
+        <tbody>
+          {% for h in history %}
+          {% if h.kind == 'screened' %}
+          <tr>
+            <td>{{ h.at[:16] | replace('T', ' ') }}</td><td>הערכת סוכן</td>
+            <td class="fw-bold">{{ h.overall_score }}</td>
+            <td>{% if h.delta is not none %}{{ '%+d' | format(h.delta) }}{% else %}—{% endif %}</td>
+            <td>{{ RECOMMENDATION_LABELS.get(h.recommendation, h.recommendation) }}</td>
+            <td>{{ h.runtime }}</td>
+          </tr>
+          {% else %}
+          <tr class="table-light">
+            <td>{{ h.at[:16] | replace('T', ' ') }}</td><td colspan="5">בקשת הערכה חוזרת: {{ h.reason }}</td>
+          </tr>
+          {% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
     {% if current_user.role in ['hr','hiring_manager'] and application.status in ['Screened','Interview'] %}
     <div class="card p-4">
       <h2 class="h5">החלטת גיוס</h2>

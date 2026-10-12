@@ -73,6 +73,26 @@ def complete_screening(application_id: str, report: dict):
     )
 
 
+RESCREENABLE = {"Screened", "ScreeningFailed"}
+
+
+def request_rescreen(application_id: str, reason: str, actor_id: str):
+    app_row = get_application(application_id)
+    if not app_row:
+        raise ValueError("מועמדות לא נמצאה")
+    if app_row["status"] not in RESCREENABLE:
+        raise ValueError("אפשר לבקש הערכה חוזרת רק למועמדות שהוערכה או שההערכה שלה נכשלה")
+    if not reason.strip():
+        raise ValueError("יש לכתוב למה נדרשת הערכה חוזרת")
+    EventStore.append(
+        "ApplicationRescreenRequested",
+        "Application",
+        application_id,
+        {"reason": reason.strip()[:500], "previous_score": app_row.get("agent_score")},
+        {"user_id": actor_id},
+    )
+
+
 def decide(application_id: str, decision: str, reason: str, actor_id: str):
     app_row = get_application(application_id)
     if not app_row:

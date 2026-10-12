@@ -3,6 +3,7 @@ from flask import Blueprint, current_app, flash, redirect, render_template, requ
 from app.commands.jobs import close_job, draft_job, open_job
 from app.queries.applications import get_application_by_candidate_job, list_for_job
 from app.queries.jobs import get_job, list_jobs
+from app.queries.ranking import ranking_for_job
 from app.queries.semantic import similar_candidates_for_job
 from app.security import current_user, login_required, role_required
 
@@ -82,6 +83,15 @@ def close_route(job_id):
     close_job(job_id, current_user()["id"])
     flash("המשרה נסגרה", "success")
     return redirect(url_for("jobs.detail", job_id=job_id))
+
+
+@bp.route("/<job_id>/ranking")
+@role_required("hr", "hiring_manager")
+def ranking(job_id):
+    job = get_job(job_id)
+    if not job:
+        return redirect(url_for("jobs.table"))
+    return render_template("jobs/ranking.html", job=job, ranking=ranking_for_job(job))
 
 
 @bp.route("/<job_id>/semantic")

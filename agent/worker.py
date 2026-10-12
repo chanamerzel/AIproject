@@ -36,11 +36,16 @@ def _preflight() -> str | None:
 
 
 def _previous_failures(application_id: str) -> int:
+    """Failed attempts since the last re-screen request (a re-screen gives a fresh set of attempts)."""
     from app.event_store import EventStore
 
-    return sum(
-        1 for e in EventStore.for_aggregate(application_id) if e["event_type"] == "ApplicationScreeningFailed"
-    )
+    failures = 0
+    for event in EventStore.for_aggregate(application_id):
+        if event["event_type"] == "ApplicationRescreenRequested":
+            failures = 0
+        elif event["event_type"] == "ApplicationScreeningFailed":
+            failures += 1
+    return failures
 
 
 def screen_pending() -> int:

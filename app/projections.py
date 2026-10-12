@@ -16,6 +16,7 @@ def apply_event(event: dict):
         "ApplicationScreeningStarted": _screening_started,
         "ApplicationScreeningCompleted": _screening_completed,
         "ApplicationScreeningFailed": _screening_failed,
+        "ApplicationRescreenRequested": _rescreen_requested,
         "InterviewScheduled": _status,
         "ApplicationRejected": _rejected,
         "OfferExtended": _offer,
@@ -113,6 +114,14 @@ def _screening_failed(event, payload):
     db.execute(
         "UPDATE applications SET status = ? WHERE id = ?",
         (status, event["aggregate_id"]),
+    )
+
+
+def _rescreen_requested(event, payload):
+    # Back to the worker's queue; the previous report stays until the new one replaces it.
+    db.execute(
+        "UPDATE applications SET status = 'Submitted' WHERE id = ?",
+        (event["aggregate_id"],),
     )
 
 

@@ -52,10 +52,11 @@ flowchart TB
 
 ## תהליכים
 
-1. **Web (Flask)** — ממשק משתמש + API פנימי לסוכן (`POST /internal/commands/record-screening`).
-2. **Worker (Deep Agent)** — process נפרד. **קורא רשומות ממסד הנתונים** (`pending_screening`), מריץ Google ADK + כלי MCP Studio + Tavily MCP + RAG, כותב אירוע `ApplicationScreeningCompleted`.
-3. **Somee SQL Server** — Event Store ופרויקציות בענן.
-4. **Chroma** — וקטורי CV על דיסק מקומי (`chroma_data/`).
+1. **Web (Flask, gunicorn)**: ממשק משתמש. יש גם API פנימי מוגן במפתח (`/internal/...`, כותרת `X-Agent-Key`) למקרה שסוכן ירוץ על מכונה בלי גישה ישירה למסד.
+2. **Worker (Deep Agent)**: process נפרד, קונטיינר `worker`. **קורא רשומות ממסד הנתונים** (`pending_screening`), מריץ `deepagents` עם מתזמר ושני תתי-סוכנים, כלי MCP Studio, Tavily MCP ו-RAG, וכותב אירועים דרך ה-Commands.
+3. **Somee SQL Server**: Event Store ופרויקציות בענן.
+4. **Chroma**: וקטורי CV על volume משותף ל-web ול-worker (`/app/chroma_data`).
+5. **LLM**: Gemini (ענן), ו-Ollama על Windows כגיבוי (`host.docker.internal:11434`).
 
 ## זרימת כתיבה
 
@@ -75,22 +76,26 @@ UI GET → View → Query handler → SELECT מטבלאות פרויקציה
 ```mermaid
 sequenceDiagram
   participant W as agent.worker
-  participant API as Flask /internal
-  participant T1 as MCP extract_resume_profile
-  participant CH as Chroma RAG
-  participant T2 as MCP evaluate_requirement_coverage
-  participant TV as Tavily
-  participant ES as Event Store
-  W->>API: GET pending Submitted
-  API-->>W: application + job
-  W->>API: POST start-screening
-  API->>ES: ApplicationScreeningStarted
-  W->>T1: CV text
-  W->>CH: query vs job text
-  W->>T2: must_have vs CV
-  W->>TV: last company + core skill
-  W->>API: POST complete-screening
-  API->>ES: ApplicationScreeningCompleted
+  participant DB as Somee
+  participant O as Orchestrator
+  participant CA as cv-analyst
+  participant WR as web-researcher
+  participant MS as MCP Studio
+  participant CH as Chroma
+  participant TV as Tavily MCP
+  W->>DB: SELECT applications WHERE status=Submitted
+  W->>DB: ApplicationScreeningStarted
+  W->>O: application brief
+  O->>CA: task
+  CA->>MS: extract_resume_profile, evaluate_requirement_coverage
+  CA->>CH: rag_cv_against_job
+  CA-->>O: findings
+  O->>WR: task: last company + core skill
+  WR->>TV: tavily_search
+  WR-->>O: findings with URLs
+  O-->>W: JSON report
+  W->>W: _finalize: cross-check with tool trace
+  W->>DB: ApplicationScreeningCompleted
 ```
 
 תהליך נפרד חובה: `python -m agent.worker`. Flask לבדו לא מעריך מועמדים.
@@ -106,8 +111,8 @@ sequenceDiagram
 | שירות | פרוטוקול | תפקיד |
 |---|---|---|
 | Somee | TDS/SQL | Event Store + read models |
-| Tavily | MCP / HTTP | חיפוש אינטרנט |
-| Gmail | MCP | מייל החלטה |
-| Ollama או Gemini | LLM | מודל הסוכן |
+| Tavily | MCP (stdio, `tavily-mcp`) | חיפוש אינטרנט |
+| Gmail | MCP | מייל החלטה (לא מחובר; ההחלטה נשמרת כאירוע) |
+| Gemini, Ollama כגיבוי | LLM | מודל הסוכן |
 
 Flask **לא** מאוחסן ב-Somee (Somee לא מריץ Python על hosting חינמי).

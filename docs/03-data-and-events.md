@@ -36,6 +36,8 @@
 | CvEmbedded | Application | סימון שה-CV בווקטור |
 | ApplicationScreeningStarted | Application | status=Screening |
 | ApplicationScreeningCompleted | Application | status=Screened + דוח |
+| ApplicationScreeningFailed | Application | final: status=ScreeningFailed, אחרת חזרה ל-Submitted |
+| ApplicationRescreenRequested | Application | status=Submitted (הדוח הקודם נשאר עד שיוחלף) |
 | InterviewScheduled | Application | status=Interview |
 | ApplicationRejected | Application | status=Rejected |
 | OfferExtended | Application | status=Offered |
@@ -52,6 +54,10 @@ stateDiagram-v2
   [*] --> Submitted: ApplicationSubmitted
   Submitted --> Screening: ApplicationScreeningStarted
   Screening --> Screened: ApplicationScreeningCompleted
+  Screening --> Submitted: ApplicationScreeningFailed
+  Screening --> ScreeningFailed: ApplicationScreeningFailed final
+  Screened --> Submitted: ApplicationRescreenRequested
+  ScreeningFailed --> Submitted: ApplicationRescreenRequested
   Screened --> Interview: InterviewScheduled
   Screened --> Rejected: ApplicationRejected
   Screened --> Offered: OfferExtended

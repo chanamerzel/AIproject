@@ -14,6 +14,24 @@
 | F6 | הטמעת שני CV שונים מחזירה דירוג סמנטי |
 | F7 | worker על מועמדות Submitted מייצר ScreeningCompleted עם ציון |
 | F8 | Reject משנה סטטוס ונרשם אירוע |
+| F9 | דירוג: מוערכים לפי ציון, לא-מוערכים אחריהם לפי דמיון וקטורי; סיכום המלצות; מועמד לא ניגש לדף |
+| F10 | בקשת הערכה חוזרת כותבת אירוע, מחזירה ל-Submitted, ההיסטוריה מציגה שני ציונים והפרש; מועמד לא יכול לבקש; אחרי 3 כישלונות הבקשה נותנת ניסיונות חדשים |
+| F11 | מודל מתוסרט עובר orchestrator → cv-analyst → web-researcher; כל כלי חובה נקרא, ו-`delegation` מראה איזה תת-סוכן קרא לו; `auto` בוחר Gemini ואז Ollama |
+
+## CI (GitHub Actions)
+
+`.github/workflows/tests.yml` רץ בכל push:
+
+- `sqlite`: כל הסוויטה.
+- `sql-server`: אותה סוויטה מול SQL Server 2022, אותו מנוע כמו Somee.
+- `docker`: `docker compose build`.
+
+## בדיקה ידנית מול השירותים האמיתיים
+
+1. `docker compose up -d --build`, ואז `docker compose exec web python seed_demo.py`.
+2. `python -m scripts.smoke_flow http://127.0.0.1:5050`: הגשה, הערכת סוכן, החלטה.
+3. `docker compose logs worker`: שורת `screened ... runtime=deepagents:gemini:...`.
+4. `/health`: `"backend": "mssql"` (Somee).
 
 ## בדיקות ארכיטקטורה
 
