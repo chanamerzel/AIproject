@@ -8,10 +8,12 @@ x-app-env: &app-env
   CHROMA_PATH: /app/chroma_data
   TAVILY_API_KEY: ${TAVILY_API_KEY:-}
   GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-  LLM_PROVIDER: ${LLM_PROVIDER:-gemini}
+  # auto = Gemini, falling back to Ollama on the host when Gemini is missing or fails.
+  LLM_PROVIDER: ${LLM_PROVIDER:-auto}
   GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
-  OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+  OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
   OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:3b}
+  OLLAMA_NUM_CTX: ${OLLAMA_NUM_CTX:-16384}
   WORKER_POLL_SECONDS: ${WORKER_POLL_SECONDS:-20}
 
 x-app-volumes: &app-volumes
@@ -40,11 +42,14 @@ services:
     command: ["python", "-m", "agent.worker"]
     environment: *app-env
     volumes: *app-volumes
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       web:
         condition: service_healthy
     restart: unless-stopped
 
+  # Alternative to Ollama installed on the host; set OLLAMA_BASE_URL=http://ollama:11434 to use it.
   ollama:
     image: ollama/ollama:latest
     profiles: ["ollama"]

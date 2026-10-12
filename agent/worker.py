@@ -23,14 +23,15 @@ MAX_ATTEMPTS = 3
 
 def _preflight() -> str | None:
     """Return a reason not to screen, or None. Checked before any application is touched."""
-    from agent.deep_agent import AgentNotConfigured, _build_model, agent_mode
+    from agent.deep_agent import AgentNotConfigured, agent_mode, model_chain
 
     if agent_mode() == "pipeline":
         return None
     try:
-        _build_model()
+        chain = model_chain()
     except AgentNotConfigured as exc:
         return str(exc)
+    logger.info("models available: %s", ", ".join(name for name, _ in chain))
     return None
 
 

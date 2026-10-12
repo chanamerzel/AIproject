@@ -8,6 +8,10 @@ os.environ["FITSCREEN_FAKE_EMBEDDINGS"] = "1"
 os.environ["FITSCREEN_AGENT_MODE"] = "pipeline"
 os.environ["TAVILY_API_KEY"] = ""
 os.environ["DATABASE_URL"] = ""
+os.environ["LLM_PROVIDER"] = "auto"
+os.environ["GEMINI_API_KEY"] = ""
+os.environ["GOOGLE_API_KEY"] = ""
+os.environ["OLLAMA_BASE_URL"] = "http://127.0.0.1:9"
 
 from app import create_app  # noqa: E402
 
