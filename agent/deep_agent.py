@@ -404,11 +404,17 @@ def _finalize(report: dict, trace: dict, application: dict, runtime: str) -> dic
     if web_errors and not web_available:
         gaps.append("Web verification (Tavily MCP) did not complete: " + "; ".join(e for e in web_errors if e)[:200])
 
-    web_evidence = report.get("web_evidence") or [
-        {"title": h.get("title", ""), "url": h.get("url", ""), "finding": (h.get("content") or "")[:240]}
-        for h in web_hits[:5]
-        if isinstance(h, dict)
+    hits = [h for h in web_hits if isinstance(h, dict) and h.get("url")]
+    real_urls = {h["url"] for h in hits}
+    # Keep the model's findings only for URLs Tavily actually returned; never show an invented link.
+    web_evidence = [
+        e for e in (report.get("web_evidence") or []) if isinstance(e, dict) and e.get("url") in real_urls
+    ] or [
+        {"title": h.get("title", ""), "url": h["url"], "finding": (h.get("content") or "")[:240]}
+        for h in hits[:5]
     ]
+
+    summary = report.get("summary") or _fallback_summary(coverage, semantic_fit, len(real_urls))
 
     calls = trace.get("_calls") or []
     return {
@@ -418,10 +424,10 @@ def _finalize(report: dict, trace: dict, application: dict, runtime: str) -> dic
         "web_score": web_score if web_available else None,
         "recommendation": recommendation,
         "agent_recommendation": report.get("recommendation"),
-        "summary": report.get("summary", ""),
+        "summary": summary,
         "strengths": [str(s) for s in strengths][:8],
         "gaps": [str(g) for g in gaps][:8],
-        "web_evidence": [e for e in web_evidence if isinstance(e, dict)][:5],
+        "web_evidence": web_evidence[:5],
         "cv_excerpts": report.get("cv_excerpts") or rag.get("relevant_cv_passages") or [],
         "profile": trace.get("extract_resume_profile") or {},
         "tools_used": [name for name in REQUIRED_TOOLS if name in trace],
@@ -429,6 +435,18 @@ def _finalize(report: dict, trace: dict, application: dict, runtime: str) -> dic
         "delegation": [c for c in calls if c["by"] != "reconciliation"],
         "runtime": runtime,
     }
+
+
+def _fallback_summary(coverage: dict, semantic_fit: int, sources: int) -> str:
+    matched = list(coverage.get("must_have_matched") or [])
+    missing = list(coverage.get("must_have_missing") or [])
+    total = len(matched) + len(missing)
+    text = f"Covers {len(matched)} of {total} must-have skills" if total else "No must-have skills listed"
+    if missing:
+        text += f" (missing: {', '.join(missing)})"
+    text += f". Semantic fit to the job: {semantic_fit}%."
+    text += f" Web check: {sources} source(s)." if sources else " Web check returned no sources."
+    return text + " (Generated from tool results: the agent did not write a summary.)"
 
 
 def _clamp(value, default: int) -> int:

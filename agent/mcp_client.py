@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -55,8 +56,33 @@ def _as_results(raw) -> list:
     if isinstance(raw, dict):
         if "results" in raw:
             return raw["results"]
+        if "text" in raw:
+            return _parse_tavily_text(raw["text"])
         return [raw]
-    return [{"content": str(raw)}]
+    return _parse_tavily_text(str(raw))
+
+
+_TAVILY_FIELD = re.compile(r"^(Title|URL|Content|Raw Content|ID|Score):\s?(.*)$")
+
+
+def _parse_tavily_text(text: str) -> list[dict]:
+    """tavily-mcp returns 'Title: ...\\nURL: ...\\nContent: ...' blocks as plain text."""
+    results, current, field = [], {}, None
+    for line in text.splitlines():
+        match = _TAVILY_FIELD.match(line)
+        if match:
+            key, value = match.group(1).lower().replace(" ", "_"), match.group(2).strip()
+            if key == "title" and current:
+                results.append(current)
+                current = {}
+            current[key] = value
+            field = key
+        elif field == "content" and line.strip():
+            current["content"] = f"{current.get('content', '')} {line.strip()}".strip()
+    if current:
+        results.append(current)
+    results = [r for r in results if r.get("url")]
+    return results or [{"content": text.strip()[:2000]}]
 
 
 def _stdio_call(command, args, arguments_env, tool_name, arguments, cwd) -> dict:

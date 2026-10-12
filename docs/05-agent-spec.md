@@ -89,6 +89,18 @@ Ollama מותקן על Windows (לא בתוך Docker), וה-worker מגיע אל
 
 `FITSCREEN_AGENT_MODE=pipeline` מריץ את אותם כלים בלי LLM, לסוויטת הבדיקות בלבד. בדיקה נפרדת מריצה את `create_deep_agent` עם מודל מתוסרט שעובר orchestrator → cv-analyst → web-researcher, ומוודאת שכל כלי נקרא על ידי תת-הסוכן הנכון ושהדוח הוצלב.
 
-## הרצה אמיתית שנבדקה
+## מכסות Gemini
 
-Gemini 2.5 Flash, קורות חיים `samples/cv_python.txt` מול משרת Python Backend: 157 שניות, ציון 83, `advance`, אף כלי לא דולג. cv-analyst הפעיל את 3 הכלים, ו-web-researcher ביצע 4 חיפושים.
+לכל מודל Gemini יש מכסה יומית חינמית נפרדת (`gemini-2.5-flash`: 20 בקשות ביום). הערכה אחת צורכת כ-12 בקשות. לכן `GEMINI_MODEL` הוא רשימה שעוברים עליה לפי הסדר, עם `max_retries=1`, כך שמכסה שנגמרה (429) או עומס (503) עוברים מיד למודל הבא. רק אחרי כל מודלי Gemini מגיעים ל-Ollama.
+
+## הרצות אמיתיות שנבדקו (Docker, Somee, Tavily)
+
+קורות חיים `samples/cv_python.txt` מול משרת Python Backend, אותה מועמדות:
+
+| הרצה | מנוע | זמן | ציון | הערות |
+|---|---|---|---|---|
+| 1 | `ollama:qwen2.5:3b` | כ-12 דקות | 81 advance | Gemini החזיר 429 (מכסה), המעבר ל-Ollama קרה לבד |
+| 2 (הערכה חוזרת) | `gemini:gemini-2.5-flash-lite` | כדקה | 83 advance | מודל 1 נכשל ברשת, מודל 2 החזיר 503, מודל 3 הצליח |
+| 3 (הערכה חוזרת) | `gemini:gemini-3.1-flash-lite` | כ-3 דקות | 83 advance | 3 מקורות Tavily עם קישורים, כולל אימות המעסיק NovaLabs |
+
+בכל ההרצות: אף כלי חובה לא דולג, cv-analyst הפעיל את 3 הכלים, ו-web-researcher את Tavily. "היסטוריית הערכות" מציגה את שלוש ההרצות ואת שתי בקשות ההערכה החוזרת.

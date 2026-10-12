@@ -118,6 +118,50 @@ def test_auto_uses_ollama_when_gemini_has_no_key(monkeypatch):
     assert [name for name, _ in deep_agent.model_chain()] == ["ollama"]
 
 
+TAVILY_TEXT = """Detailed Results:
+
+Title: Flask (web framework) - Wikipedia
+ID: 624645-00
+URL: https://en.wikipedia.org/wiki/Flask_(web_framework)
+Content: Flask is a micro web framework written in Python.
+It has no database abstraction layer.
+
+Title: Welcome to Flask
+URL: https://flask.palletsprojects.com/
+Content: Flask is a lightweight WSGI web application framework."""
+
+
+def test_tavily_text_response_is_parsed_into_sources():
+    from agent.mcp_client import _as_results
+
+    results = _as_results({"text": TAVILY_TEXT})
+    assert [r["url"] for r in results] == [
+        "https://en.wikipedia.org/wiki/Flask_(web_framework)",
+        "https://flask.palletsprojects.com/",
+    ]
+    assert results[0]["title"] == "Flask (web framework) - Wikipedia"
+    assert "no database abstraction layer" in results[0]["content"]
+
+
+def test_report_drops_web_evidence_with_invented_urls():
+    from agent.mcp_client import _as_results
+
+    application = {"id": "a1", "job_id": "j1", "cv_text": "", "must_have_skills": "Python"}
+    trace = {
+        "extract_resume_profile": {},
+        "evaluate_requirement_coverage": {"coverage_score": 50, "must_have_matched": ["Python"], "must_have_missing": []},
+        "rag_cv_against_job": {"semantic_fit_percent": 40},
+        "tavily_web_search": [{"query": "flask", "ok": True, "results": _as_results({"text": TAVILY_TEXT})}],
+    }
+    report = {"web_evidence": [{"title": "Made up", "url": "https://invented.example", "finding": "x"}]}
+    result = deep_agent._finalize(report, trace, application, runtime="test")
+    assert {e["url"] for e in result["web_evidence"]} == {
+        "https://en.wikipedia.org/wiki/Flask_(web_framework)",
+        "https://flask.palletsprojects.com/",
+    }
+    assert result["summary"].startswith("Covers 1 of 1 must-have skills")
+
+
 def test_health_reports_database_backend(client):
     body = client.get("/health").get_json()
     assert body["status"] == "ok"
