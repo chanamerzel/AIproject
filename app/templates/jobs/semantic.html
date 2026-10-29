@@ -24,8 +24,8 @@
     <tbody>
       {% for m in matches %}
       <tr>
-        <td>{{ m.candidate_name or m.application_id }}</td>
-        <td>
+        <td data-label="מועמדות">{{ m.candidate_name or m.application_id }}</td>
+        <td data-label="דמיון">
           <div class="d-flex align-items-center gap-2">
             <span class="fw-bold">{{ '%.0f'|format(m.score * 100) }}%</span>
             <div class="progress flex-grow-1" style="height:6px;min-width:80px">
@@ -33,7 +33,7 @@
             </div>
           </div>
         </td>
-        <td><a href="{{ url_for('applications.detail', application_id=m.application_id) }}">פרטים</a></td>
+        <td class="td-action" data-label="פרטים"><a href="{{ url_for('applications.detail', application_id=m.application_id) }}">פרטים</a></td>
       </tr>
       {% endfor %}
     </tbody>

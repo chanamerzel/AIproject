@@ -42,9 +42,9 @@
       <tbody>
         {% for r in ranking['items'] %}
         <tr>
-          <td class="fw-bold">{{ r.rank }}</td>
-          <td>{{ r.candidate_name }}</td>
-          <td>
+          <td class="fw-bold" data-label="#">{{ r.rank }}</td>
+          <td data-label="מועמד">{{ r.candidate_name }}</td>
+          <td data-label="ציון כולל">
             {% if r.overall_score is not none %}
             <div class="d-flex align-items-center gap-2">
               <span class="fw-bold">{{ r.overall_score }}</span>
@@ -54,14 +54,14 @@
             </div>
             {% else %}—{% endif %}
           </td>
-          <td>{{ r.skill_coverage if r.skill_coverage is not none else '—' }}</td>
-          <td>{{ r.semantic_fit if r.semantic_fit is not none else '—' }}</td>
-          <td>{{ r.web_score if r.web_score is not none else '—' }}</td>
-          <td>{{ r.semantic_live ~ '%' if r.semantic_live is not none else '—' }}</td>
-          <td>{{ RECOMMENDATION_LABELS.get(r.recommendation, '—') }}</td>
-          <td><span class="badge text-bg-{{ STATUS_BADGE[r.status] }}">{{ STATUS_LABELS[r.status] }}</span></td>
-          <td class="small">{{ r.missing_skills | join(', ') or '—' }}</td>
-          <td><a href="{{ url_for('applications.detail', application_id=r.application_id) }}">דוח</a></td>
+          <td data-label="מה כתוב בקורות החיים">{{ r.skill_coverage if r.skill_coverage is not none else '—' }}</td>
+          <td data-label="דומה למשרה">{{ r.semantic_fit if r.semantic_fit is not none else '—' }}</td>
+          <td data-label="מה מצאנו ברשת">{{ r.web_score if r.web_score is not none else '—' }}</td>
+          <td data-label="דמיון עכשיו">{{ r.semantic_live ~ '%' if r.semantic_live is not none else '—' }}</td>
+          <td data-label="המלצה">{{ RECOMMENDATION_LABELS.get(r.recommendation, '—') }}</td>
+          <td data-label="סטטוס"><span class="badge text-bg-{{ STATUS_BADGE[r.status] }}">{{ STATUS_LABELS[r.status] }}</span></td>
+          <td class="small" data-label="חסר">{{ r.missing_skills | join(', ') or '—' }}</td>
+          <td class="td-action" data-label="דוח"><a href="{{ url_for('applications.detail', application_id=r.application_id) }}">דוח</a></td>
         </tr>
         {% endfor %}
       </tbody>

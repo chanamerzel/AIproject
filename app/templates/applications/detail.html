@@ -51,18 +51,20 @@
       {% if report.summary %}<p>{{ report.summary }}</p>{% endif %}
       {% if report.skill_evidence %}
       <h3 class="h6">כישורי חובה</h3>
+      <div class="table-responsive">
       <table class="table table-sm small mb-3">
         <thead><tr><th>כישור</th><th>בקורות החיים</th><th>המשפט</th></tr></thead>
         <tbody>
           {% for item in report.skill_evidence %}
           <tr>
-            <td>{{ item.skill }}</td>
-            <td>{{ 'נמצא' if item.matched else 'חסר' }}</td>
-            <td>{{ item.quote or '—' }}</td>
+            <td data-label="כישור">{{ item.skill }}</td>
+            <td data-label="בקורות החיים">{{ 'נמצא' if item.matched else 'חסר' }}</td>
+            <td data-label="המשפט">{{ item.quote or '—' }}</td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
+      </div>
       {% endif %}
       {% if report.github_portfolio and report.github_portfolio.ok %}
       <h3 class="h6 mt-3">תיק GitHub</h3>
@@ -146,26 +148,30 @@
     <div class="card p-4 mb-3">
       <h2 class="h5">היסטוריית הערכות</h2>
       <p class="small text-secondary">כל בדיקה קודמת נשמרת.</p>
+      <div class="table-responsive">
       <table class="table table-sm small mb-0">
         <thead><tr><th>מתי</th><th>מה</th><th>ציון</th><th>שינוי</th><th>המלצה</th><th>מנוע</th></tr></thead>
         <tbody>
           {% for h in history %}
           {% if h.kind == 'screened' %}
           <tr>
-            <td>{{ h.at | local_time }}</td><td>הערכת סוכן</td>
-            <td class="fw-bold">{{ h.overall_score }}</td>
-            <td>{% if h.delta is not none %}{{ '%+d' | format(h.delta) }}{% else %}—{% endif %}</td>
-            <td>{{ RECOMMENDATION_LABELS.get(h.recommendation, h.recommendation) }}</td>
-            <td>{{ h.runtime }}</td>
+            <td data-label="מתי">{{ h.at | local_time }}</td>
+            <td data-label="מה">הערכת סוכן</td>
+            <td class="fw-bold" data-label="ציון">{{ h.overall_score }}</td>
+            <td data-label="שינוי">{% if h.delta is not none %}{{ '%+d' | format(h.delta) }}{% else %}—{% endif %}</td>
+            <td data-label="המלצה">{{ RECOMMENDATION_LABELS.get(h.recommendation, h.recommendation) }}</td>
+            <td data-label="מנוע">{{ h.runtime }}</td>
           </tr>
           {% else %}
           <tr class="table-light">
-            <td>{{ h.at | local_time }}</td><td colspan="5">בקשת הערכה חוזרת: {{ h.reason }}</td>
+            <td data-label="מתי">{{ h.at | local_time }}</td>
+            <td colspan="5">בקשת הערכה חוזרת: {{ h.reason }}</td>
           </tr>
           {% endif %}
           {% endfor %}
         </tbody>
       </table>
+      </div>
     </div>
     {% endif %}
     {% if current_user.role == 'hiring_manager' and application.status in ['Screened','Interview'] %}

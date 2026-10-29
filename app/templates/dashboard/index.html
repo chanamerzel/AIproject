@@ -35,13 +35,17 @@
   <div class="col-lg-7">
     <div class="card chart-card">
       <h2 class="h6">נרשמים לפי משרה</h2>
-      <canvas id="jobsChart" height="140" role="img" aria-label="גרף עמודות של מספר נרשמים בכל משרה פתוחה"></canvas>
+      <div class="chart-frame">
+        <canvas id="jobsChart" role="img" aria-label="גרף עמודות של מספר נרשמים בכל משרה פתוחה"></canvas>
+      </div>
     </div>
   </div>
   <div class="col-lg-5">
     <div class="card chart-card">
       <h2 class="h6">התפלגות סטטוסים</h2>
-      <canvas id="statusChart" height="140" role="img" aria-label="גרף דונאט של מועמדויות לפי סטטוס"></canvas>
+      <div class="chart-frame">
+        <canvas id="statusChart" role="img" aria-label="גרף דונאט של מועמדויות לפי סטטוס"></canvas>
+      </div>
     </div>
   </div>
 </div>
@@ -54,11 +58,11 @@
       <tbody>
         {% for job in jobs %}
         <tr>
-          <td>{{ job.title }}</td>
-          <td>{{ job.location }}</td>
-          <td>{{ job.applicant_count }}</td>
-          <td>{{ job.opened_at | local_time or '—' }}</td>
-          <td><a href="{{ url_for('jobs.detail', job_id=job.id) }}">מועמדים</a></td>
+          <td data-label="משרה">{{ job.title }}</td>
+          <td data-label="מיקום">{{ job.location }}</td>
+          <td data-label="נרשמים">{{ job.applicant_count }}</td>
+          <td data-label="נפתחה">{{ job.opened_at | local_time or '—' }}</td>
+          <td class="td-action" data-label="פעולה"><a href="{{ url_for('jobs.detail', job_id=job.id) }}">מועמדים</a></td>
         </tr>
         {% endfor %}
       </tbody>
@@ -83,14 +87,15 @@ new Chart(document.getElementById('jobsChart'), {
     labels: jobs.map(j => j.title),
     datasets: [{ label: 'נרשמים', data: jobs.map(j => j.applicant_count), backgroundColor: '#1ee0d0', borderRadius: 6 }]
   },
-  options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+  options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
 });
 new Chart(document.getElementById('statusChart'), {
   type: 'doughnut',
   data: {
     labels: Object.keys(counts),
     datasets: [{ data: Object.values(counts), backgroundColor: ['#1ee0d0','#0a1e33','#4a6078','#d64555','#e3a008','#178a5c'] }]
-  }
+  },
+  options: { responsive: true, maintainAspectRatio: false }
 });
 </script>
 {% endblock %}

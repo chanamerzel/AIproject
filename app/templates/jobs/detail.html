@@ -95,10 +95,10 @@
           <tbody>
             {% for app in applications %}
             <tr>
-              <td>{{ app.candidate_name }}</td>
-              <td><span class="badge text-bg-{{ STATUS_BADGE[app.status] }}">{{ STATUS_LABELS[app.status] }}</span></td>
-              <td>{{ app.agent_score if app.agent_score is not none else '—' }}</td>
-              <td><a href="{{ url_for('applications.detail', application_id=app.id) }}">דוח</a></td>
+              <td data-label="שם">{{ app.candidate_name }}</td>
+              <td data-label="סטטוס"><span class="badge text-bg-{{ STATUS_BADGE[app.status] }}">{{ STATUS_LABELS[app.status] }}</span></td>
+              <td data-label="ציון סוכן">{{ app.agent_score if app.agent_score is not none else '—' }}</td>
+              <td class="td-action" data-label="דוח"><a href="{{ url_for('applications.detail', application_id=app.id) }}">דוח</a></td>
             </tr>
             {% endfor %}
           </tbody>
