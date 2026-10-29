@@ -1,46 +1,85 @@
 {% extends "base.html" %}
-{% block title %}FitScreen — סינון מועמדים{% endblock %}
+{% block title %}FitScreen{% endblock %}
+{% block main_class %}page-landing{% endblock %}
 {% block body %}
-<div class="row align-items-center g-4 mb-5">
-  <div class="col-lg-7">
-    <p class="text-primary fw-semibold mb-2">מערכת גיוס · Event Sourcing · Deep Agent</p>
-    <h1 class="display-5 fw-bold">סינון מועמדים על סמך ראיות, לא תחושת בטן</h1>
-    <p class="lead">HR מפרסם משרה. מועמד מגיש קורות חיים. סוכן AI נפרד מעריך התאמה עם RAG וחיפוש ברשת. ההחלטה נשמרת כאירוע.</p>
-    <a class="btn btn-primary btn-lg" href="{{ url_for('auth.register') }}">הרשמה</a>
-    <a class="btn btn-outline-primary btn-lg" href="{{ url_for('auth.login') }}">כניסה</a>
-  </div>
-  <div class="col-lg-5">
-    <div class="card p-4">
-      <h2 class="h5">שלושה תפקידים</h2>
-      <ul class="mb-0">
-        <li><strong>מועמד</strong> — חיפוש משרה, פרטים, הגשה + CV</li>
-        <li><strong>גיוס</strong> — יצירת משרה, טבלת מועמדים, החלטה</li>
-        <li><strong>מנהל גיוס</strong> — אישור פתיחת משרה ודשבורד</li>
-      </ul>
+<section class="hero-band">
+  <div class="container">
+    <div class="hero">
+      <div>
+        <p class="eyebrow">גיוס והתאמת מועמדים</p>
+        <h1>המועמד הנכון, בלי לנחש</h1>
+        <p class="lead">פותחים משרה, מועמדים מגישים קורות חיים, והצוות רואה ציון התאמה לפני שקובעים ראיון.</p>
+        <div class="hero-actions">
+          <a class="btn btn-primary btn-lg" href="{{ url_for('auth.register') }}">אני מחפש עבודה</a>
+          <a class="btn btn-outline-primary btn-lg" href="{{ url_for('auth.recruit_login') }}">אני מגייס</a>
+        </div>
+      </div>
+      <aside class="card preview-card" aria-label="תצוגת ציון התאמה">
+        <div class="preview-top">
+          <p class="eyebrow">התאמה למשרה</p>
+          <span class="pill">להתקדם</span>
+        </div>
+        <div class="ring-row">
+          <div class="score-ring" style="--p: 82"><span>82</span></div>
+          <div>
+            <strong>מפתח Python</strong>
+            <p>ציון כולל לפי כישורים, ניסיון והתאמה למשרה.</p>
+          </div>
+        </div>
+        <ul class="meters">
+          <li><span>כישורים</span><b>91</b><i style="--w: 91%"></i></li>
+          <li><span>התאמה למשרה</span><b>74</b><i style="--w: 74%"></i></li>
+          <li><span>ניסיון</span><b>68</b><i style="--w: 68%"></i></li>
+        </ul>
+      </aside>
     </div>
   </div>
-</div>
-<div class="row g-3">
-  <div class="col-md-4">
-    <div class="card h-100 p-3">
-      <div class="text-primary fw-bold">1</div>
-      <h3 class="h5">הזנה</h3>
-      <p class="mb-0 text-secondary">משרה עם כישורי חובה/רצוי, ואז מועמדות עם קובץ CV.</p>
-    </div>
+</section>
+
+<div class="landing-body">
+  <div class="section-kicker">
+    <p class="eyebrow">איך זה עובד</p>
+    <h2 class="h4 mb-0">ממשרה פתוחה עד החלטת גיוס</h2>
   </div>
-  <div class="col-md-4">
-    <div class="card h-100 p-3">
-      <div class="text-primary fw-bold">2</div>
-      <h3 class="h5">הערכת סוכן</h3>
-      <p class="mb-0 text-secondary">תהליך נפרד: MCP Studio, Chroma, Tavily, ציון והמלצה.</p>
-    </div>
+  <div class="step-grid mb-4">
+    <article class="card step">
+      <div class="step-num" aria-hidden="true">1</div>
+      <h2 class="h5">משרה</h2>
+      <p class="muted mb-0">מפרסמים משרה עם המיקום, הניסיון והכישורים שחשובים לכם.</p>
+    </article>
+    <article class="card step">
+      <div class="step-num" aria-hidden="true">2</div>
+      <h2 class="h5">קורות חיים</h2>
+      <p class="muted mb-0">מועמדים מגישים מועמדות למשרות הפתוחות ישירות מהאתר.</p>
+    </article>
+    <article class="card step">
+      <div class="step-num" aria-hidden="true">3</div>
+      <h2 class="h5">החלטה</h2>
+      <p class="muted mb-0">הצוות רואה דירוג ומחליט את מי לזמן, למי להציע, ואת מי לסגור.</p>
+    </article>
   </div>
-  <div class="col-md-4">
-    <div class="card h-100 p-3">
-      <div class="text-primary fw-bold">3</div>
-      <h3 class="h5">החלטה</h3>
-      <p class="mb-0 text-secondary">דשבורד משרות פתוחות + נרשמים, ואז ראיון / דחייה / הצעה.</p>
-    </div>
+
+  <div class="panel-grid">
+    <article class="card panel lift door-panel">
+      <h2 class="h5">לצוות גיוס</h2>
+      <p class="muted">מגייסת כותבת משרות ומחליטה על מועמדים. מנהל גיוס מאשר פתיחה של משרה.</p>
+      <div class="door-links">
+        <a href="{{ url_for('auth.recruit_login') }}">כניסת מגייסים</a>
+        <a href="{{ url_for('auth.recruit_register') }}">פתיחת חשבון</a>
+      </div>
+    </article>
+    <article class="card panel lift door-panel">
+      <h2 class="h5">למועמדים</h2>
+      <p class="muted">חיפוש משרה פתוחה והגשת קורות חיים במקום אחד.</p>
+      <div class="door-links">
+        <a href="{{ url_for('auth.login') }}">כניסת מועמדים</a>
+        <a href="{{ url_for('auth.register') }}">הרשמה</a>
+      </div>
+    </article>
+    <article class="card panel lift">
+      <h2 class="h5">תיעוד מלא</h2>
+      <p class="muted mb-0">כל שינוי נשמר כאירוע. אפשר לחזור לראות למה התקבלה החלטה.</p>
+    </article>
   </div>
 </div>
 {% endblock %}

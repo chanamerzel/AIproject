@@ -3,6 +3,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from flask import Blueprint, current_app, flash, redirect, render_template, request, url_for
+from werkzeug.utils import secure_filename
 
 from app.commands.applications import RESCREENABLE, decide, request_rescreen, submit_application
 from app.cv_text import extract_text
@@ -28,15 +29,21 @@ def apply(job_id):
     if not file or not file.filename:
         flash("יש לצרף קובץ קורות חיים", "danger")
         return redirect(url_for("jobs.detail", job_id=job_id))
+    suffix = Path(file.filename).suffix.lower()
+    if suffix not in {".txt", ".pdf", ".md"}:
+        flash("אפשר להעלות קובץ TXT, MD או PDF עם טקסט.", "danger")
+        return redirect(url_for("jobs.detail", job_id=job_id))
     text, data = extract_text(file)
     if len(text) < 40:
-        flash("לא הצלחנו לקרוא מספיק טקסט מקורות החיים. נסי קובץ TXT או PDF עם טקסט.", "danger")
+        flash("לא הצלחנו לקרוא מספיק טקסט מהקובץ. אפשר לנסות TXT או PDF עם טקסט.", "danger")
         return redirect(url_for("jobs.detail", job_id=job_id))
-    dest = Path(current_app.config["UPLOAD_FOLDER"]) / f"{uuid4()}_{file.filename}"
+    safe_name = secure_filename(file.filename) or f"cv{suffix}"
+    dest = Path(current_app.config["UPLOAD_FOLDER"]) / f"{uuid4().hex}_{safe_name}"
     dest.write_bytes(data)
     try:
         application_id = submit_application(job_id, current_user()["id"], str(dest), text)
     except ValueError as exc:
+        dest.unlink(missing_ok=True)
         flash(str(exc), "danger")
         return redirect(url_for("jobs.detail", job_id=job_id))
     try:
@@ -46,7 +53,7 @@ def apply(job_id):
     except Exception:
         current_app.logger.exception("CV embedding failed")
         flash("המועמדות נשמרה, אך ההטמעה הווקטורית נכשלה. הסוכן עדיין מעריך לפי טקסט.", "warning")
-    flash("המועמדות נקלטה. סוכן ההערכה רץ בתהליך נפרד: python -m agent.worker", "success")
+    flash("המועמדות נקלטה. צוות הגיוס יקבל הערכה מהסוכן ברקע.", "success")
     return redirect(url_for("applications.detail", application_id=application_id))
 
 
@@ -63,6 +70,17 @@ def detail(application_id):
         return redirect(url_for("applications.mine"))
     is_staff = user["role"] in ("hr", "hiring_manager")
     report = json.loads(row["agent_report_json"]) if is_staff and row.get("agent_report_json") else None
+    if report:
+        from agent.deep_agent import state_for_saved_report
+        from app.cv_text import enrich_stored_text
+
+        report = state_for_saved_report(
+            report,
+            enrich_stored_text(row.get("cv_text") or "", row.get("cv_path")),
+            row.get("must_have_skills") or "",
+            row.get("nice_to_have_skills") or "",
+            row.get("candidate_name") or "",
+        )
     timeline = EventStore.for_aggregate(application_id)
     failures = [e for e in timeline if e["event_type"] == "ApplicationScreeningFailed"]
     last_failure = failures[-1]["payload"].get("error") if is_staff and failures else None
@@ -72,14 +90,14 @@ def detail(application_id):
         report=report,
         timeline=timeline,
         last_failure=last_failure,
-        history=screening_history(application_id) if is_staff else [],
-        emails=decision_emails(application_id) if is_staff else [],
-        can_rescreen=is_staff and row["status"] in RESCREENABLE,
+        history=screening_history(application_id, timeline) if is_staff else [],
+        emails=decision_emails(application_id, timeline) if is_staff else [],
+        can_rescreen=user["role"] == "hr" and row["status"] in RESCREENABLE,
     )
 
 
 @bp.route("/<application_id>/rescreen", methods=["POST"])
-@role_required("hr", "hiring_manager")
+@role_required("hr")
 def rescreen_route(application_id):
     try:
         request_rescreen(application_id, request.form.get("reason", ""), current_user()["id"])
@@ -90,14 +108,14 @@ def rescreen_route(application_id):
 
 
 @bp.route("/<application_id>/decide", methods=["POST"])
-@role_required("hr", "hiring_manager")
+@role_required("hr")
 def decide_route(application_id):
-    decision = request.form["decision"]
+    decision = request.form.get("decision", "")
     reason = request.form.get("reason", "").strip()
     try:
-            decide(application_id, decision, reason, current_user()["id"])
+        decide(application_id, decision, reason, current_user()["id"])
     except ValueError as exc:
         flash(str(exc), "danger")
         return redirect(url_for("applications.detail", application_id=application_id))
-    flash("ההחלטה נשמרה כאירוע. המייל למועמד יישלח דרך Gmail MCP בתהליך הרקע (agent.worker).", "success")
+    flash("ההחלטה נשמרה.", "success")
     return redirect(url_for("applications.detail", application_id=application_id))

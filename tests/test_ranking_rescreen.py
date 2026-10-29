@@ -108,8 +108,9 @@ def test_rescreen_appends_event_requeues_and_keeps_history(app, client):
     with app.app_context():
         assert get_application(application_id)["status"] == "Submitted"
         _screen(application_id, 75, "advance")
-        history = screening_history(application_id)
-        types = [e["event_type"] for e in EventStore.for_aggregate(application_id)]
+        events = EventStore.for_aggregate(application_id)
+        history = screening_history(application_id, events)
+        types = [e["event_type"] for e in events]
 
     assert types.count("ApplicationScreeningCompleted") == 2
     assert "ApplicationRescreenRequested" in types

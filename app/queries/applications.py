@@ -16,13 +16,28 @@ def get_application(application_id: str):
 
 def get_application_by_candidate_job(candidate_id: str, job_id: str):
     return db.fetch_one(
-        "SELECT * FROM applications WHERE candidate_id = ? AND job_id = ?",
+        "SELECT id FROM applications WHERE candidate_id = ? AND job_id = ?",
         (candidate_id, job_id),
     )
 
 
-def list_for_job(job_id: str, status=None):
-    sql = """SELECT a.*, u.full_name AS candidate_name, u.email AS candidate_email
+def application_state(application_id: str):
+    """Id, status and score only — commands use this when they do not need the CV."""
+    return db.fetch_one(
+        "SELECT id, status, agent_score FROM applications WHERE id = ?",
+        (application_id,),
+    )
+
+
+_LIST_COLUMNS = {
+    "full": "a.*, u.full_name AS candidate_name, u.email AS candidate_email",
+    "summary": "a.id, a.status, a.agent_score, u.full_name AS candidate_name",
+    "ranking": "a.id, a.status, a.agent_score, a.agent_report_json, u.full_name AS candidate_name",
+}
+
+
+def list_for_job(job_id: str, status=None, *, shape: str = "full"):
+    sql = f"""SELECT {_LIST_COLUMNS[shape]}
              FROM applications a
              JOIN users u ON u.id = a.candidate_id
              WHERE a.job_id = ?"""
@@ -36,19 +51,51 @@ def list_for_job(job_id: str, status=None):
 
 def list_for_candidate(candidate_id: str):
     return db.fetch_all(
-        """SELECT a.*, j.title AS job_title, j.status AS job_status
+        """SELECT a.id, a.status, a.agent_score, j.title AS job_title, j.status AS job_status
            FROM applications a JOIN jobs j ON j.id = a.job_id
            WHERE a.candidate_id = ? ORDER BY j.title""",
         (candidate_id,),
     )
 
 
-def screening_history(application_id: str) -> list[dict]:
-    """Every agent report and re-screen request, oldest first, read from the event stream."""
-    from app.event_store import EventStore
+def names_by_application(application_ids: list[str]) -> dict[str, str]:
+    if not application_ids:
+        return {}
+    marks = ", ".join("?" for _ in application_ids)
+    rows = db.fetch_all(
+        f"""SELECT a.id, u.full_name AS candidate_name
+            FROM applications a
+            JOIN users u ON u.id = a.candidate_id
+            WHERE a.id IN ({marks})""",
+        tuple(application_ids),
+    )
+    return {row["id"]: row["candidate_name"] for row in rows}
 
+
+def contacts_by_application(application_ids: list[str]) -> dict[str, dict]:
+    if not application_ids:
+        return {}
+    marks = ", ".join("?" for _ in application_ids)
+    rows = db.fetch_all(
+        f"""SELECT a.id, u.full_name AS candidate_name, u.email AS candidate_email,
+                   j.title AS job_title
+            FROM applications a
+            JOIN jobs j ON j.id = a.job_id
+            JOIN users u ON u.id = a.candidate_id
+            WHERE a.id IN ({marks})""",
+        tuple(application_ids),
+    )
+    return {row["id"]: row for row in rows}
+
+
+def screening_history(application_id: str, events: list[dict]) -> list[dict]:
+    """Every agent report and re-screen request for `application_id`, oldest first.
+
+    The caller passes the event stream. This query does not open the event store.
+    """
+    events = [event for event in events if event.get("aggregate_id", application_id) == application_id]
     history, previous = [], None
-    for event in EventStore.for_aggregate(application_id):
+    for event in events:
         payload = event["payload"]
         if event["event_type"] == "ApplicationScreeningCompleted":
             score = payload.get("overall_score")
@@ -74,7 +121,10 @@ def screening_history(application_id: str) -> list[dict]:
 def pending_screening():
     return db.fetch_all(
         """SELECT a.*, j.title AS job_title, j.description AS job_description,
-                  j.must_have_skills, j.nice_to_have_skills, j.min_years, j.location AS job_location
-           FROM applications a JOIN jobs j ON j.id = a.job_id
+                  j.must_have_skills, j.nice_to_have_skills, j.min_years, j.location AS job_location,
+                  u.full_name AS candidate_name, u.email AS candidate_email
+           FROM applications a
+           JOIN jobs j ON j.id = a.job_id
+           JOIN users u ON u.id = a.candidate_id
            WHERE a.status = 'Submitted'"""
     )

@@ -153,13 +153,267 @@ def test_report_drops_web_evidence_with_invented_urls():
         "rag_cv_against_job": {"semantic_fit_percent": 40},
         "tavily_web_search": [{"query": "flask", "ok": True, "results": _as_results({"text": TAVILY_TEXT})}],
     }
-    report = {"web_evidence": [{"title": "Made up", "url": "https://invented.example", "finding": "x"}]}
-    result = deep_agent._finalize(report, trace, application, runtime="test")
-    assert {e["url"] for e in result["web_evidence"]} == {
-        "https://en.wikipedia.org/wiki/Flask_(web_framework)",
-        "https://flask.palletsprojects.com/",
+    report = {
+        "web_score": 99,
+        "web_evidence": [{"title": "Made up", "url": "https://invented.example", "finding": "x"}],
     }
-    assert result["summary"].startswith("Covers 1 of 1 must-have skills")
+    result = deep_agent._finalize(report, trace, application, runtime="test")
+    assert result["web_evidence"] == []
+    assert result["web_score"] == 0
+    assert "השם המלא" in result["web_note"]
+    assert result["summary"].startswith("קורות החיים מכסים 1 מתוך 1 כישורי חובה")
+    assert result["agent_state"]["step_count"] == 4
+    assert result["agent_state"]["current_step"] == 4
+
+
+def test_web_search_uses_quoted_name_not_github_url_or_generic_skills():
+    queries = deep_agent._web_queries(
+        {
+            "github_url": "https://github.com/smerzel",
+            "linkedin_url": "https://www.linkedin.com/in/sara-merzel-91b72436b",
+            "last_company": "NovaLabs",
+        },
+        {"candidate_name": "Sara Merzel", "job_title": "Python Backend", "must_have_skills": "Python, Flask"},
+    )
+    assert queries == ['"Sara Merzel"', '"Sara Merzel" NovaLabs', '"Sara Merzel" Python Backend']
+    assert all("linkedin" not in q.casefold() for q in queries)
+    assert all("github.com" not in q.casefold() for q in queries)
+    assert all(q != "Python" and "software engineering" not in q for q in queries)
+
+
+def test_web_page_about_the_candidate_is_kept():
+    application = {"candidate_name": "Sara Merzel", "cv_text": "", "must_have_skills": "Python"}
+    trace = {
+        "extract_resume_profile": {"github_login": "smerzel"},
+        "evaluate_requirement_coverage": {
+            "coverage_score": 50,
+            "must_have_matched": ["Python"],
+            "must_have_missing": ["Flask"],
+            "skill_evidence": [
+                {"skill": "Python", "matched": True, "quote": "Python on the backend"},
+                {"skill": "Flask", "matched": False, "quote": None},
+            ],
+        },
+        "rag_cv_against_job": {"semantic_fit_percent": 40},
+        "tavily_web_search": [
+            {
+                "query": "sara",
+                "ok": True,
+                "results": [
+                    {"title": "Flask", "url": "https://flask.palletsprojects.com/", "content": "framework"},
+                    {"title": "Sara Merzel", "url": "https://github.com/smerzel", "content": "profile"},
+                ],
+            }
+        ],
+    }
+    result = deep_agent._finalize({}, trace, application, runtime="test")
+    assert [item["url"] for item in result["web_evidence"]] == ["https://github.com/smerzel"]
+    assert result["github_status"] == "unchecked"
+    assert result["web_score"] >= 35
+    assert not result["web_note"]
+    labels = [item["label"] for item in result["agent_state"]["citations"]]
+    assert labels == ["Python", "Flask"]
+
+
+def test_saved_report_without_agent_state_still_shows_plan_and_quote():
+    report = {
+        "overall_score": 83,
+        "skill_coverage": 100,
+        "web_score": 60,
+        "cv_excerpts": ["Built Python services."],
+        "web_evidence": [{"title": "Flask", "url": "https://flask.palletsprojects.com/", "finding": "framework"}],
+        "tools_used": [
+            "extract_resume_profile",
+            "evaluate_requirement_coverage",
+            "rag_cv_against_job",
+            "tavily_web_search",
+        ],
+    }
+    shown = deep_agent.state_for_saved_report(
+        report, "Five years of Python on the backend.", "Python", candidate_name="Dana Candidate"
+    )
+    assert shown["agent_state"]["current_step"] == 4
+    quotes = [c["quote"] for c in shown["agent_state"]["citations"] if c["kind"] == "skill" and c.get("quote")]
+    assert quotes and "Python" in quotes[0]
+    assert shown["web_evidence"] == []
+    assert shown["web_score"] == 60
+    assert shown["overall_score"] == 83
+    assert report.get("agent_state") is None
+
+
+def test_github_lookup_reads_public_api(monkeypatch):
+    monkeypatch.delenv("FITSCREEN_FAKE_EMBEDDINGS", raising=False)
+
+    class FakeResponse:
+        status_code = 200
+
+        def json(self):
+            return {
+                "login": "smerzel",
+                "html_url": "https://github.com/smerzel",
+                "name": "Sara",
+                "bio": "dev",
+                "public_repos": 2,
+            }
+
+    monkeypatch.setattr("agent.github_public.httpx.get", lambda *args, **kwargs: FakeResponse())
+    from agent.github_public import lookup
+
+    found = lookup("smerzel")
+    assert found["ok"] is True
+    assert found["html_url"] == "https://github.com/smerzel"
+
+
+def test_github_inspect_collects_repo_languages(monkeypatch):
+    monkeypatch.delenv("FITSCREEN_FAKE_EMBEDDINGS", raising=False)
+
+    class FakeResponse:
+        def __init__(self, payload):
+            self.status_code = 200
+            self._payload = payload
+
+        def json(self):
+            return self._payload
+
+    def fake_get(url, **kwargs):
+        if url.endswith("/repos"):
+            return FakeResponse(
+                [
+                    {
+                        "name": "services",
+                        "html_url": "https://github.com/smerzel/services",
+                        "language": "Python",
+                        "description": "API",
+                        "pushed_at": "2026-02-01T00:00:00Z",
+                        "fork": False,
+                    }
+                ]
+            )
+        return FakeResponse(
+            {
+                "login": "smerzel",
+                "html_url": "https://github.com/smerzel",
+                "name": "Sara",
+                "bio": "",
+                "public_repos": 1,
+            }
+        )
+
+    monkeypatch.setattr("agent.github_public.httpx.get", fake_get)
+    from agent.github_public import inspect
+
+    found = inspect("smerzel")
+    assert found["ok"] is True
+    assert found["languages"] == ["Python"]
+    assert found["repos"][0]["name"] == "services"
+
+
+def test_github_portfolio_is_separate_from_tavily_junk(monkeypatch):
+    monkeypatch.setattr(
+        "agent.github_public.inspect",
+        lambda login: {
+            "ok": True,
+            "login": login,
+            "html_url": f"https://github.com/{login}",
+            "name": "Sara Merzel",
+            "bio": "",
+            "public_repos": 4,
+            "languages": ["Python"],
+            "last_activity": "2026-01-01",
+            "repos": [
+                {
+                    "name": "services",
+                    "html_url": f"https://github.com/{login}/services",
+                    "language": "Python",
+                    "description": "backend",
+                    "pushed_at": "2026-01-01",
+                }
+            ],
+        },
+    )
+    application = {"candidate_name": "Sara Merzel", "cv_text": "", "must_have_skills": "Python"}
+    trace = {
+        "extract_resume_profile": {
+            "github_login": "smerzel",
+            "github_url": "https://github.com/smerzel",
+        },
+        "evaluate_requirement_coverage": {
+            "coverage_score": 50,
+            "must_have_matched": ["Python"],
+            "must_have_missing": [],
+        },
+        "rag_cv_against_job": {"semantic_fit_percent": 40},
+        "tavily_web_search": [
+            {
+                "query": "python",
+                "ok": True,
+                "results": [{"title": "Flask", "url": "https://flask.palletsprojects.com/", "content": "framework"}],
+            }
+        ],
+    }
+    result = deep_agent._finalize({}, trace, application, runtime="test")
+    assert result["github_status"] == "verified"
+    assert result["web_evidence"] == []
+    assert "השם המלא" in result["web_note"]
+    assert result["github_portfolio"]["matched_skills"] == ["Python"]
+    assert result["github_portfolio"]["repos"][0]["name"] == "services"
+    assert result["web_score"] == 35
+
+
+def test_github_api_404_marks_account_missing(monkeypatch):
+    monkeypatch.setattr("agent.github_public.inspect", lambda login: {"ok": False, "login": login})
+    application = {"candidate_name": "Sara Merzel", "must_have_skills": "Python"}
+    trace = {
+        "extract_resume_profile": {"github_login": "no-such-user-xyz", "github_url": "https://github.com/no-such-user-xyz"},
+        "evaluate_requirement_coverage": {"coverage_score": 50, "must_have_matched": ["Python"], "must_have_missing": []},
+        "rag_cv_against_job": {"semantic_fit_percent": 40},
+        "tavily_web_search": [
+            {"query": "python", "ok": True, "results": [{"title": "Flask", "url": "https://flask.palletsprojects.com/", "content": "framework"}]}
+        ],
+    }
+    result = deep_agent._finalize({}, trace, application, runtime="test")
+    assert result["github_status"] == "not_found"
+    assert result["web_score"] == 0
+
+
+def test_saved_report_shows_github_from_cv_without_changing_score():
+    report = {
+        "overall_score": 83,
+        "skill_coverage": 100,
+        "web_score": 0,
+        "github_status": "not_provided",
+        "web_evidence": [{"title": "Flask", "url": "https://flask.palletsprojects.com/"}],
+        "web_note": "לא נמצא ברשת פרופיל של המועמד.",
+    }
+    shown = deep_agent.state_for_saved_report(
+        report,
+        "Sara Merzel\nGitHub: https://github.com/smerzel",
+        "Python",
+        candidate_name="Sara Merzel",
+    )
+    assert shown["overall_score"] == 83
+    assert shown["web_score"] == 0
+    assert shown["profile"]["github_url"] == "https://github.com/smerzel"
+    assert shown["web_evidence"] == []
+    assert shown["github_status"] == "unchecked"
+    assert "השם המלא" in (shown.get("web_note") or "")
+    assert shown.get("linkedin_status") == "closed" or shown.get("linkedin_status") in (None, "not_provided")
+
+
+def test_pdf_link_target_is_added_when_the_visible_text_has_none(tmp_path):
+    from pypdf import PdfWriter
+    from pypdf.annotations import Link
+
+    from app.cv_text import enrich_stored_text
+
+    writer = PdfWriter()
+    writer.add_blank_page(width=200, height=200)
+    writer.add_annotation(0, Link(rect=(0, 0, 100, 100), url="https://github.com/smerzel"))
+    path = tmp_path / "cv.pdf"
+    with path.open("wb") as handle:
+        writer.write(handle)
+    text = enrich_stored_text("Sara Merzel\nGitHub", str(path))
+    assert "https://github.com/smerzel" in text
 
 
 def test_health_reports_database_backend(client):

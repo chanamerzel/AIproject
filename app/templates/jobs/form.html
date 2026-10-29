@@ -1,10 +1,21 @@
 {% extends "base.html" %}
 {% block title %}משרה חדשה{% endblock %}
 {% block body %}
-<div class="col-lg-8">
-  <h1 class="h3 mb-3">משרה חדשה</h1>
-  <p class="text-secondary">נשמרת כטיוטה. מנהל גיוס חייב לאשר פתיחה לפני שמועמדים יכולים להגיש.</p>
+<nav class="crumbs" aria-label="מיקום בדף">
+  <a href="{{ url_for('jobs.table') }}">משרות</a>
+  <span class="sep" aria-hidden="true">/</span>
+  <span>משרה חדשה</span>
+</nav>
+<div class="page-narrow">
+  <div class="page-head">
+    <div>
+      <p class="eyebrow">צוות גיוס</p>
+      <h1>משרה חדשה</h1>
+      <p class="text-secondary mb-0">נשמרת כטיוטה. אחרי השמירה אפשר לפתוח אותה לקבלת מועמדויות.</p>
+    </div>
+  </div>
   <form method="post" class="card p-4">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
     <div class="mb-3">
       <label class="form-label" for="title">כותרת</label>
       <input class="form-control" id="title" name="title" required>

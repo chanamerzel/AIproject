@@ -23,35 +23,45 @@ class EventStore:
         payload: dict,
         metadata: dict | None = None,
     ) -> dict:
-        event = {
-            "event_id": str(uuid.uuid4()),
-            "event_type": event_type,
-            "aggregate_type": aggregate_type,
-            "aggregate_id": aggregate_id,
-            "version": EventStore.next_version(aggregate_id),
-            "payload_json": json.dumps(payload, ensure_ascii=False),
-            "metadata_json": json.dumps(metadata or {}, ensure_ascii=False),
-            "occurred_at": datetime.now(timezone.utc).isoformat(),
-        }
-        db.execute(
-            """INSERT INTO events (event_id, event_type, aggregate_type, aggregate_id,
-               version, payload_json, metadata_json, occurred_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-            (
-                event["event_id"],
-                event["event_type"],
-                event["aggregate_type"],
-                event["aggregate_id"],
-                event["version"],
-                event["payload_json"],
-                event["metadata_json"],
-                event["occurred_at"],
-            ),
-        )
-        from app.projections import apply_event
+        last_error: Exception | None = None
+        for _attempt in range(3):
+            event = {
+                "event_id": str(uuid.uuid4()),
+                "event_type": event_type,
+                "aggregate_type": aggregate_type,
+                "aggregate_id": aggregate_id,
+                "version": 0,
+                "payload_json": json.dumps(payload, ensure_ascii=False),
+                "metadata_json": json.dumps(metadata or {}, ensure_ascii=False),
+                "occurred_at": datetime.now(timezone.utc).isoformat(),
+            }
+            try:
+                with db.transaction():
+                    event["version"] = EventStore.next_version(aggregate_id)
+                    db.execute(
+                        """INSERT INTO events (event_id, event_type, aggregate_type, aggregate_id,
+                           version, payload_json, metadata_json, occurred_at)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                        (
+                            event["event_id"],
+                            event["event_type"],
+                            event["aggregate_type"],
+                            event["aggregate_id"],
+                            event["version"],
+                            event["payload_json"],
+                            event["metadata_json"],
+                            event["occurred_at"],
+                        ),
+                    )
+                    from app.projections import apply_event
 
-        apply_event(event)
-        return event
+                    apply_event(event, payload)
+                return event
+            except Exception as exc:
+                last_error = exc
+                if not db.is_version_conflict(exc):
+                    raise
+        raise last_error
 
     @staticmethod
     def for_aggregate(aggregate_id: str) -> list[dict]:

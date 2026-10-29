@@ -1,9 +1,10 @@
 {% extends "base.html" %}
 {% block title %}אין הרשאה{% endblock %}
 {% block body %}
-<div class="card p-4">
+<div class="card error-panel">
+  <div class="error-code">403</div>
   <h1 class="h3">אין הרשאה למסך זה</h1>
-  <p>התפקיד שלך אינו יכול לבצע את הפעולה. מועמד לא ניגש לדשבורד גיוס, ורק מנהל גיוס מאשר פתיחת משרה.</p>
-  <a href="{{ url_for('main.index') }}">חזרה</a>
+  <p class="muted">אין הרשאה למסך זה. מועמדת רואה רק משרות פתוחות ואת ההגשות שלה.</p>
+  <a class="btn btn-primary" href="{{ url_for('main.index') }}">חזרה</a>
 </div>
 {% endblock %}

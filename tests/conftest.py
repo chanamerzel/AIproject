@@ -11,6 +11,8 @@ os.environ["DATABASE_URL"] = ""
 os.environ["LLM_PROVIDER"] = "auto"
 os.environ["GEMINI_API_KEY"] = ""
 os.environ["GOOGLE_API_KEY"] = ""
+os.environ["GOOGLE_CLIENT_ID"] = ""
+os.environ["GOOGLE_CLIENT_SECRET"] = ""
 os.environ["OLLAMA_BASE_URL"] = "http://127.0.0.1:9"
 
 from app import create_app  # noqa: E402
@@ -46,13 +48,19 @@ def client(app):
 
 
 def register(client, email, role, name=None):
+    full_name = name or email.split("@")[0]
+    if role != "candidate":
+        with client.application.app_context():
+            from app.commands.identity import register_user
+
+            register_user(email, "secret1", full_name, role)
+        return login(client, email)
     return client.post(
         "/auth/register",
         data={
             "email": email,
             "password": "secret1",
-            "full_name": name or email.split("@")[0],
-            "role": role,
+            "full_name": full_name,
         },
         follow_redirects=True,
     )
@@ -63,14 +71,20 @@ def logout(client):
 
 
 def login(client, email):
+    with client.application.app_context():
+        from app.queries.identity import get_user_by_email
+
+        user = get_user_by_email(email)
+    staff = user is not None and user["role"] != "candidate"
     return client.post(
-        "/auth/login",
+        "/auth/recruit/login" if staff else "/auth/login",
         data={"email": email, "password": "secret1"},
         follow_redirects=True,
     )
 
 
 def open_python_job(client):
+    """HR drafts the job; the hiring manager approves it, as in the product."""
     register(client, "hr@x.test", "hr", "HR User")
     job_page = client.post(
         "/jobs/new",
@@ -86,7 +100,14 @@ def open_python_job(client):
     )
     job_id = job_page.request.path.split("/")[-1]
     logout(client)
-    register(client, "hm@x.test", "hiring_manager", "Manager")
+    with client.application.app_context():
+        from app.queries.identity import get_user_by_email
+
+        has_manager = get_user_by_email("hm@x.test") is not None
+    if has_manager:
+        login(client, "hm@x.test")
+    else:
+        register(client, "hm@x.test", "hiring_manager", "Hiring Manager")
     client.post(f"/jobs/{job_id}/open", follow_redirects=True)
     logout(client)
     return job_id

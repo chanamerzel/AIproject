@@ -1,42 +1,53 @@
 {% extends "base.html" %}
-{% block title %}דשבורד{% endblock %}
+{% block title %}לוח משרות{% endblock %}
 {% block body %}
-<h1 class="h3 mb-3">דשבורד משרות פתוחות</h1>
+<div class="page-head">
+  <div>
+    <p class="eyebrow">צוות גיוס</p>
+    <h1>לוח משרות פתוחות</h1>
+  </div>
+  {% if current_user.role == 'hr' %}
+  <a class="btn btn-primary" href="{{ url_for('jobs.create') }}">משרה חדשה</a>
+  {% endif %}
+</div>
 <div class="row g-3 mb-4">
   <div class="col-md-4">
-    <div class="card p-3">
+    <div class="card stat-card">
       <div class="text-secondary">משרות פתוחות</div>
-      <div class="display-6">{{ jobs|length }}</div>
+      <div class="stat-value">{{ jobs|length }}</div>
     </div>
   </div>
   <div class="col-md-4">
-    <div class="card p-3">
-      <div class="text-secondary">סה״כ נרשמים במשרות הפתוחות</div>
-      <div class="display-6">{% set ns = namespace(t=0) %}{% for j in jobs %}{% set ns.t = ns.t + j.applicant_count %}{% endfor %}{{ ns.t }}</div>
+    <div class="card stat-card">
+      <div class="text-secondary">נרשמים במשרות הפתוחות</div>
+      <div class="stat-value">{% set ns = namespace(t=0) %}{% for j in jobs %}{% set ns.t = ns.t + j.applicant_count %}{% endfor %}{{ ns.t }}</div>
     </div>
   </div>
   <div class="col-md-4">
-    <div class="card p-3">
+    <div class="card stat-card">
       <div class="text-secondary">מועמדויות לפי סטטוס</div>
-      <div>{% for s,n in counts.items() %}<span class="badge text-bg-{{ STATUS_BADGE.get(s, 'secondary') }} me-1">{{ STATUS_LABELS.get(s,s) }} {{ n }}</span>{% else %}אין{% endfor %}</div>
+      <div class="mt-2">{% for s,n in counts.items() %}<span class="badge text-bg-{{ STATUS_BADGE.get(s, 'secondary') }} me-1">{{ STATUS_LABELS.get(s,s) }} {{ n }}</span>{% else %}<span class="muted">אין</span>{% endfor %}</div>
     </div>
   </div>
 </div>
 
 <div class="row g-3 mb-4">
   <div class="col-lg-7">
-    <div class="card p-3">
-      <canvas id="jobsChart" height="140"></canvas>
+    <div class="card chart-card">
+      <h2 class="h6">נרשמים לפי משרה</h2>
+      <canvas id="jobsChart" height="140" role="img" aria-label="גרף עמודות של מספר נרשמים בכל משרה פתוחה"></canvas>
     </div>
   </div>
   <div class="col-lg-5">
-    <div class="card p-3">
-      <canvas id="statusChart" height="140"></canvas>
+    <div class="card chart-card">
+      <h2 class="h6">התפלגות סטטוסים</h2>
+      <canvas id="statusChart" height="140" role="img" aria-label="גרף דונאט של מועמדויות לפי סטטוס"></canvas>
     </div>
   </div>
 </div>
 
 <div class="card">
+  {% if jobs %}
   <div class="table-responsive">
     <table class="table mb-0">
       <thead><tr><th>משרה</th><th>מיקום</th><th>נרשמים</th><th>נפתחה</th><th></th></tr></thead>
@@ -46,19 +57,23 @@
           <td>{{ job.title }}</td>
           <td>{{ job.location }}</td>
           <td>{{ job.applicant_count }}</td>
-          <td>{{ job.opened_at or '—' }}</td>
+          <td>{{ job.opened_at | local_time or '—' }}</td>
           <td><a href="{{ url_for('jobs.detail', job_id=job.id) }}">מועמדים</a></td>
         </tr>
-        {% else %}
-        <tr><td colspan="5" class="text-secondary">אין משרות פתוחות.</td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
+  {% else %}
+  <div class="empty-state">
+    <strong>אין משרות פתוחות</strong>
+    <p class="mb-0">כשמשרה תאושר היא תופיע בלוח.</p>
+  </div>
+  {% endif %}
 </div>
 {% endblock %}
 {% block scripts %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="{{ url_for('static', filename='vendor/chart.umd.min.js') }}"></script>
 <script>
 const jobs = {{ jobs | tojson }};
 const counts = {{ counts | tojson }};
@@ -66,7 +81,7 @@ new Chart(document.getElementById('jobsChart'), {
   type: 'bar',
   data: {
     labels: jobs.map(j => j.title),
-    datasets: [{ label: 'נרשמים', data: jobs.map(j => j.applicant_count), backgroundColor: '#1f6feb' }]
+    datasets: [{ label: 'נרשמים', data: jobs.map(j => j.applicant_count), backgroundColor: '#1ee0d0', borderRadius: 6 }]
   },
   options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
 });
@@ -74,7 +89,7 @@ new Chart(document.getElementById('statusChart'), {
   type: 'doughnut',
   data: {
     labels: Object.keys(counts),
-    datasets: [{ data: Object.values(counts), backgroundColor: ['#0dcaf0','#ffc107','#1f6feb','#198754','#dc3545','#6f42c1'] }]
+    datasets: [{ data: Object.values(counts), backgroundColor: ['#1ee0d0','#0a1e33','#4a6078','#d64555','#e3a008','#178a5c'] }]
   }
 });
 </script>

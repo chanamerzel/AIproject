@@ -1,23 +1,38 @@
 {% extends "base.html" %}
-{% block title %}כניסה{% endblock %}
+{% set staff = door == 'staff' %}
+{% block title %}{{ 'כניסת מגייסים' if staff else 'כניסת מועמדים' }}{% endblock %}
 {% block body %}
-<div class="row justify-content-center">
-  <div class="col-md-5">
-    <div class="card p-4">
-      <h1 class="h3 mb-3">כניסה</h1>
-      <form method="post">
-        <div class="mb-3">
-          <label class="form-label" for="email">אימייל</label>
-          <input class="form-control" id="email" name="email" type="email" required>
-        </div>
-        <div class="mb-3">
-          <label class="form-label" for="password">סיסמה</label>
-          <input class="form-control" id="password" name="password" type="password" required>
-        </div>
-        <button class="btn btn-primary w-100" type="submit">כניסה</button>
-      </form>
-      <p class="mt-3 mb-0">אין חשבון? <a href="{{ url_for('auth.register') }}">הרשמה</a></p>
-    </div>
+<div class="auth-wrap">
+  <div class="card auth-card{% if staff %} auth-card-staff{% endif %}">
+    <p class="eyebrow">{{ 'FitScreen לצוות גיוס' if staff else 'FitScreen למועמדים' }}</p>
+    <h1 class="h3">{{ 'כניסת מגייסים' if staff else 'כניסת מועמדים' }}</h1>
+    <p class="lead">{{ 'לוח משרות, דירוג מועמדים והחלטות גיוס.' if staff else 'המשיכו לחיפוש משרות ולמועמדויות שלכם.' }}</p>
+    <form method="post">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <div class="mb-3">
+        <label class="form-label" for="email">{{ 'אימייל בעבודה' if staff else 'אימייל' }}</label>
+        <input class="form-control" id="email" name="email" type="email" required autocomplete="username">
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="password">סיסמה</label>
+        <input class="form-control" id="password" name="password" type="password" required autocomplete="current-password">
+      </div>
+      <button class="btn btn-primary w-100" type="submit">כניסה</button>
+    </form>
+    {% if google_enabled %}
+    <div class="auth-divider"><span>או</span></div>
+    <a class="btn btn-google w-100" href="{{ url_for('auth.google_start', door=door) }}">
+      {% include "auth/_google_mark.html" %}
+      כניסה עם Google
+    </a>
+    {% endif %}
+    {% if staff %}
+    <p class="auth-switch">צוות חדש? <a href="{{ url_for('auth.recruit_register') }}">פתיחת חשבון מגייס</a></p>
+    <p class="auth-other-door">מחפשים עבודה? <a href="{{ url_for('auth.login') }}">כניסת מועמדים</a></p>
+    {% else %}
+    <p class="auth-switch">אין חשבון? <a href="{{ url_for('auth.register') }}">הרשמה</a></p>
+    <p class="auth-other-door">מגייסים? <a href="{{ url_for('auth.recruit_login') }}">כניסת מגייסים</a></p>
+    {% endif %}
   </div>
 </div>
 {% endblock %}

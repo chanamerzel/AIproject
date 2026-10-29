@@ -3,12 +3,13 @@
 import json
 
 from app import db
-from app.queries.applications import get_application
+from app.queries.applications import contacts_by_application
 
 DECISION_EVENTS = {
     "InterviewScheduled": "interview",
     "ApplicationRejected": "reject",
     "OfferExtended": "offer",
+    "JobClosureAnnounced": "closed",
 }
 OUTCOME_EVENTS = ("DecisionEmailSent", "DecisionEmailFailed")
 # "failed" is a non-final failure: the worker tries again.
@@ -58,10 +59,10 @@ def _email_states(events: list[dict]) -> list[dict]:
     return states
 
 
-def decision_emails(application_id: str) -> list[dict]:
-    from app.event_store import EventStore
-
-    return _email_states(EventStore.for_aggregate(application_id))
+def decision_emails(application_id: str, events: list[dict]) -> list[dict]:
+    """Email state for one application. The caller passes that application's event stream."""
+    owned = [event for event in events if event.get("aggregate_id", application_id) == application_id]
+    return _email_states(owned)
 
 
 def pending_decision_emails() -> list[dict]:
@@ -74,17 +75,17 @@ def pending_decision_emails() -> list[dict]:
     )
     for row in rows:
         row["payload"] = json.loads(row["payload_json"])
+    open_states = [state for state in _email_states(rows) if state["status"] in OPEN_STATUSES]
+    contacts = contacts_by_application([state["application_id"] for state in open_states])
     pending = []
-    for state in _email_states(rows):
-        if state["status"] not in OPEN_STATUSES:
-            continue
-        application = get_application(state["application_id"])
-        if not application:
+    for state in open_states:
+        contact = contacts.get(state["application_id"])
+        if not contact:
             continue
         state.update(
-            candidate_email=application["candidate_email"],
-            candidate_name=application["candidate_name"],
-            job_title=application["job_title"],
+            candidate_email=contact["candidate_email"],
+            candidate_name=contact["candidate_name"],
+            job_title=contact["job_title"],
         )
         pending.append(state)
     return sorted(pending, key=lambda s: s["decided_at"])

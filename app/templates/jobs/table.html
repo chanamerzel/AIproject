@@ -1,19 +1,24 @@
 {% extends "base.html" %}
 {% block title %}משרות{% endblock %}
 {% block body %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-  <h1 class="h3 mb-0">משרות</h1>
-  {% if current_user.role in ['hr','hiring_manager'] %}
+<div class="page-head">
+  <div>
+    <p class="eyebrow">גיוס</p>
+    <h1>משרות</h1>
+  </div>
+  {% if current_user.role == 'hr' %}
   <a class="btn btn-primary" href="{{ url_for('jobs.create') }}">משרה חדשה</a>
   {% endif %}
 </div>
-<form class="row g-2 mb-3" method="get">
-  <div class="col-md-6">
-    <input class="form-control" name="q" value="{{ q }}" placeholder="חיפוש לפי כותרת, תיאור, כישור או מיקום">
+<form class="filter-bar" method="get" role="search">
+  <div>
+    <label class="form-label" for="q">חיפוש משרה</label>
+    <input class="form-control" id="q" name="q" value="{{ q }}" placeholder="כותרת, תיאור, כישור או מיקום">
   </div>
   {% if current_user.role != 'candidate' %}
-  <div class="col-md-3">
-    <select class="form-select" name="status">
+  <div>
+    <label class="form-label" for="status">סטטוס</label>
+    <select class="form-select" id="status" name="status">
       <option value="">כל הסטטוסים</option>
       {% for s in ['Draft','Open','Closed'] %}
       <option value="{{ s }}" {% if status == s %}selected{% endif %}>{{ STATUS_LABELS[s] }}</option>
@@ -21,21 +26,35 @@
     </select>
   </div>
   {% endif %}
-  <div class="col-md-3">
+  <div>
     <button class="btn btn-outline-primary w-100" type="submit">חיפוש</button>
   </div>
 </form>
-<div class="card">
+
+{% if jobs %}
+<div class="job-grid">
+  {% for job in jobs %}
+  <article class="card job-card lift">
+    <div class="meta-row">
+      <span class="badge text-bg-{{ STATUS_BADGE[job.status] }}">{{ STATUS_LABELS[job.status] }}</span>
+      <span>{{ job.location }}</span>
+      <span>{{ job.applicant_count }} נרשמים</span>
+    </div>
+    <h2>{{ job.title }}</h2>
+    <div class="job-card-foot">
+      <span class="muted">ניסיון מ-{{ job.min_years }} שנים</span>
+      <a class="job-card-cta" href="{{ url_for('jobs.detail', job_id=job.id) }}">פרטים</a>
+    </div>
+  </article>
+  {% endfor %}
+</div>
+
+<div class="card mt-4">
   <div class="table-responsive">
-    <table class="table table-hover mb-0">
+    <table class="table table-hover align-middle mb-0">
+      <caption class="px-3">טבלת משרות ({{ jobs|length }})</caption>
       <thead>
-        <tr>
-          <th>כותרת</th>
-          <th>מיקום</th>
-          <th>סטטוס</th>
-          <th>נרשמים</th>
-          <th></th>
-        </tr>
+        <tr><th scope="col">משרה</th><th scope="col">מיקום</th><th scope="col">סטטוס</th><th scope="col">ניסיון</th><th scope="col">נרשמים</th><th scope="col"></th></tr>
       </thead>
       <tbody>
         {% for job in jobs %}
@@ -43,14 +62,19 @@
           <td>{{ job.title }}</td>
           <td>{{ job.location }}</td>
           <td><span class="badge text-bg-{{ STATUS_BADGE[job.status] }}">{{ STATUS_LABELS[job.status] }}</span></td>
+          <td>{{ job.min_years }}+</td>
           <td>{{ job.applicant_count }}</td>
           <td><a href="{{ url_for('jobs.detail', job_id=job.id) }}">פרטים</a></td>
         </tr>
-        {% else %}
-        <tr><td colspan="5" class="text-secondary">אין משרות להצגה.</td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
 </div>
+{% else %}
+<div class="card empty-state">
+  <strong>אין משרות להצגה</strong>
+  <p class="mb-0">נסו חיפוש אחר{% if current_user.role == 'hr' %} או פתחו משרה חדשה{% endif %}.</p>
+</div>
+{% endif %}
 {% endblock %}

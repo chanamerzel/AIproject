@@ -19,6 +19,14 @@ description: Implements a complete FitScreen feature using CQRS and Event Sourci
 6. Add a pytest in `tests/` matching `docs/06-testing.md`.
 7. Update `docs/07-traceability.md` if a new file was introduced.
 
-## Example
+## Do not
 
-Applying to a job: `SubmitApplication` → `ApplicationSubmitted` → projection inserts `applications` and increments `jobs.applicant_count` → query `get_job` shows the new count.
+- Do not update a status inside a view.
+- Do not return a screen, a template, or a read model from a command.
+- Do not evaluate a candidate here. Screening belongs to the `candidate-eval` skill and runs only in `agent.worker`.
+
+## Examples
+
+Applying to a job: `submit_application` appends `ApplicationSubmitted`. The projection inserts `applications` and increments `jobs.applicant_count`. The query `get_job` shows the new count.
+
+An HR decision: `decide` appends `InterviewScheduled`, `ApplicationRejected`, or `OfferExtended`. The application screen only reads `status` and `decision_reason` from the projection.

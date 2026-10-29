@@ -11,10 +11,17 @@ from app.queries.applications import list_for_job
 RECOMMENDATION_ORDER = {"advance": 0, "hold": 1, "reject": 2}
 
 
+def _missing_skills(report: dict) -> list:
+    missing = report.get("must_have_missing")
+    if not isinstance(missing, list):
+        missing = [g for g in report.get("gaps") or [] if "Tavily" not in str(g)]
+    return [str(item) for item in missing if item][:3]
+
+
 def ranking_for_job(job: dict) -> dict:
     from agent.rag import similar_for_job
 
-    rows = list_for_job(job["id"])
+    rows = list_for_job(job["id"], shape="ranking")
     similarity = {m["application_id"]: m["score"] for m in similar_for_job(job, limit=max(len(rows), 1))}
 
     ranked = []
@@ -32,7 +39,7 @@ def ranking_for_job(job: dict) -> dict:
                 "web_score": report.get("web_score"),
                 "recommendation": report.get("recommendation"),
                 "semantic_live": round(semantic_live * 100) if semantic_live is not None else None,
-                "missing_skills": [g for g in report.get("gaps") or [] if "Tavily" not in g][:3],
+                "missing_skills": _missing_skills(report),
             }
         )
 

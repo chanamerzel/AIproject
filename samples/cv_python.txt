@@ -6,3 +6,4 @@ Skills: Python, Flask, SQL, Docker, pytest, REST, Linux, Git.
 
 Built hiring APIs with Flask blueprints, CQRS-style command handlers, and PostgreSQL.
 Led a RAG prototype using embeddings for resume search.
+Open source: https://github.com/pallets/flask

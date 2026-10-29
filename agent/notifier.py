@@ -21,19 +21,22 @@ load_dotenv(ROOT / ".env")
 logger = logging.getLogger("fitscreen.notifier")
 
 SUBJECTS = {
-    "interview": "הזמנה לראיון: {job}",
-    "offer": "הצעת עבודה: {job}",
-    "reject": "עדכון לגבי מועמדותך למשרת {job}",
+    "interview": "הזמנה לראיון למשרת {job}",
+    "offer": "הצעת עבודה למשרת {job}",
+    "reject": "עדכון על המועמדות למשרת {job}",
+    "closed": "המשרה {job} נסגרה",
 }
 OPENINGS = {
-    "interview": "שמחים לעדכן שהחלטנו להזמין אותך לראיון למשרת {job}.",
-    "offer": "שמחים לבשר שהחלטנו להציע לך את משרת {job}.",
-    "reject": "תודה על התעניינותך במשרת {job}. לאחר בחינת המועמדות החלטנו שלא להתקדם בשלב זה.",
+    "interview": "שמחים להמשיך איתך למשרת {job} ולהזמין אותך לראיון. נשמח לראות אותך.",
+    "offer": "שמחים להמשיך איתך ולהציע לך את משרת {job}. נשמח לראות אותך.",
+    "reject": "לא ממשיכים איתך למשרת {job}",
+    "closed": "המשרה {job} נסגרה, ולכן לא ממשיכים עם המועמדות.",
 }
 CLOSINGS = {
-    "interview": "צוות הגיוס ייצור איתך קשר בימים הקרובים לתיאום מועד.",
-    "offer": "צוות הגיוס ייצור איתך קשר בימים הקרובים להמשך התהליך.",
-    "reject": "נשמח לשמור על קשר לגבי משרות מתאימות בעתיד.",
+    "interview": "ניצור איתך קשר בקרוב כדי לקבוע מועד.",
+    "offer": "ניצור איתך קשר בקרוב עם הפרטים.",
+    "reject": "מאחלים לך הצלחה בהמשך.",
+    "closed": "תודה שפנית, ומאחלים לך הצלחה בהמשך.",
 }
 
 _last_skip: tuple | None = None
@@ -43,11 +46,16 @@ _app = None
 def compose_email(item: dict) -> tuple[str, str, str]:
     """Deterministic Hebrew subject, plain-text body and RTL HTML body for one decision."""
     decision, job = item["decision"], item["job_title"]
+    reason = (item.get("reason") or "").strip()
     subject = SUBJECTS[decision].format(job=job)
-    lines = [f"שלום {item['candidate_name']},", "", OPENINGS[decision].format(job=job)]
-    if item.get("reason"):
-        lines += ["", f"דברי צוות הגיוס: {item['reason']}"]
-    lines += ["", CLOSINGS[decision], "", "בברכה,", "צוות הגיוס, FitScreen"]
+    if decision == "reject" and reason:
+        opening = f"{OPENINGS[decision].format(job=job)}, מכיוון ש{reason}."
+    else:
+        opening = OPENINGS[decision].format(job=job)
+    lines = [f"שלום {item['candidate_name']},", "", opening]
+    if decision != "reject" and reason:
+        lines += ["", reason]
+    lines += ["", CLOSINGS[decision], "", "בברכה,", "FitScreen"]
     text = "\n".join(lines)
     paragraphs = "".join(f"<p>{html.escape(line)}</p>" if line else "" for line in lines)
     return subject, text, f'<div dir="rtl" style="text-align:right">{paragraphs}</div>'
@@ -66,9 +74,11 @@ def send_pending_emails() -> int:
     global _last_skip
     from agent import mcp_client
     from app.commands.applications import record_email_failed, record_email_sent
+    from app.db import hold_connection
     from app.queries.notifications import pending_decision_emails
 
-    items = [item for item in pending_decision_emails() if _retry_due(item)]
+    with hold_connection():
+        items = [item for item in pending_decision_emails() if _retry_due(item)]
     if not items:
         return 0
     missing = mcp_client.gmail_not_configured()
@@ -83,19 +93,20 @@ def send_pending_emails() -> int:
         subject, text, html_body = compose_email(item)
         result = mcp_client.call_gmail_send(item["candidate_email"], subject, text, html_body)
         try:
-            if result["ok"]:
-                record_email_sent(
-                    item["application_id"],
-                    item["decision_event_id"],
-                    item["candidate_email"],
-                    subject,
-                    result["message_id"],
-                )
-                sent += 1
-                logger.info("decision email sent %s -> %s id=%s", item["decision"], item["candidate_email"], result["message_id"])
-            else:
-                record_email_failed(item["application_id"], item["decision_event_id"], item["candidate_email"], result["error"])
-                logger.warning("decision email failed %s -> %s: %s", item["decision"], item["candidate_email"], result["error"])
+            with hold_connection():
+                if result["ok"]:
+                    record_email_sent(
+                        item["application_id"],
+                        item["decision_event_id"],
+                        item["candidate_email"],
+                        subject,
+                        result["message_id"],
+                    )
+                    sent += 1
+                    logger.info("decision email sent %s -> %s id=%s", item["decision"], item["candidate_email"], result["message_id"])
+                else:
+                    record_email_failed(item["application_id"], item["decision_event_id"], item["candidate_email"], result["error"])
+                    logger.warning("decision email failed %s -> %s: %s", item["decision"], item["candidate_email"], result["error"])
         except Exception:
             logger.exception("could not record the email outcome for decision %s (gmail ok=%s)", item["decision_event_id"], result["ok"])
     return sent
@@ -103,9 +114,13 @@ def send_pending_emails() -> int:
 
 def notify_pending() -> int:
     global _app
-    from app import create_app
+    from flask import has_app_context
 
+    if has_app_context():
+        return send_pending_emails()
     if _app is None:
+        from app import create_app
+
         _app = create_app()
     with _app.app_context():
         return send_pending_emails()

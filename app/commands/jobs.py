@@ -40,7 +40,21 @@ def open_job(job_id: str, actor_id: str):
 
 
 def close_job(job_id: str, actor_id: str):
+    from app.queries.applications import list_for_job
+
     job = get_job(job_id)
     if not job:
         raise ValueError("משרה לא נמצאה")
+    if job["status"] == "Closed":
+        raise ValueError("המשרה כבר סגורה")
     EventStore.append("JobClosed", "Job", job_id, {}, {"user_id": actor_id})
+    for row in list_for_job(job_id, shape="summary"):
+        if row["status"] == "Rejected":
+            continue
+        EventStore.append(
+            "JobClosureAnnounced",
+            "Application",
+            row["id"],
+            {"job_id": job_id},
+            {"user_id": actor_id},
+        )

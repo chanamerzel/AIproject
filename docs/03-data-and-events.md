@@ -19,7 +19,7 @@
 
 ## פרויקציות (Query)
 
-- `users` — id, email, password_hash, full_name, role
+- `users` — id, email, password_hash, full_name, role, auth_provider (`password` או `google`; אירוע ישן בלי השדה נחשב `password`)
 - `jobs` — id, title, description, must_have_skills, nice_to_have_skills, min_years, location, status, created_by, applicant_count, opened_at
 - `applications` — id, job_id, candidate_id, status, cv_path, cv_text, agent_score, agent_report_json, decision_reason
 - `dashboard_stats` — חושב ב-query מ-jobs (משרות פתוחות + ספירות)
@@ -28,10 +28,11 @@
 
 | אירוע | אגרגט | תוצאת פרויקציה |
 |---|---|---|
-| UserRegistered | User | שורת user |
+| UserRegistered | User | שורת user. ה-payload כולל `role` ו-`auth_provider`. משתמש Google מקבל hash של סיסמה אקראית, כך שטופס הסיסמה לא פותח אותו |
 | JobDrafted | Job | משרה Draft |
 | JobOpened | Job | status=Open |
 | JobClosed | Job | status=Closed |
+| JobClosureAnnounced | Application | אין שינוי סטטוס. נרשם לכל מועמד שעוד לא נדחה כשמנהל מגייס סוגר משרה, וה-worker שולח מייל שהמשרה נסגרה |
 | ApplicationSubmitted | Application | status=Submitted, applicant_count++ |
 | CvEmbedded | Application | סימון שה-CV בווקטור |
 | ApplicationScreeningStarted | Application | status=Screening |
@@ -46,7 +47,7 @@
 
 ### מייל החלטה
 
-כל אירוע החלטה (`InterviewScheduled`, `ApplicationRejected`, `OfferExtended`) מקבל מייל אחד, לפי ה-`event_id` שלו. `app/queries/notifications.py` קורא את זרם האירועים (כמו היסטוריית ההערכות) ומחשב לכל החלטה מצב:
+כל אירוע החלטה (`InterviewScheduled`, `ApplicationRejected`, `OfferExtended`) מקבל מייל אחד, לפי ה-`event_id` שלו. `JobClosureAnnounced` נרשם באותו מנגנון כשמנהל מגייס סוגר משרה: מועמד שכבר נדחה לא מקבל אותו. `app/queries/notifications.py` קורא את זרם האירועים (כמו היסטוריית ההערכות) ומחשב לכל החלטה מצב:
 
 | מצב | מתי |
 |---|---|

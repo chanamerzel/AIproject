@@ -3,8 +3,10 @@ import json
 from app import db
 
 
-def apply_event(event: dict):
-    payload = json.loads(event["payload_json"]) if isinstance(event["payload_json"], str) else event["payload_json"]
+def apply_event(event: dict, payload: dict | None = None):
+    if payload is None:
+        raw = event["payload_json"]
+        payload = json.loads(raw) if isinstance(raw, str) else raw
     etype = event["event_type"]
     handlers = {
         "UserRegistered": _user_registered,
@@ -20,6 +22,7 @@ def apply_event(event: dict):
         "InterviewScheduled": _status,
         "ApplicationRejected": _rejected,
         "OfferExtended": _offer,
+        "JobClosureAnnounced": _email_outcome,
         "DecisionEmailSent": _email_outcome,
         "DecisionEmailFailed": _email_outcome,
     }
@@ -30,14 +33,15 @@ def apply_event(event: dict):
 
 def _user_registered(event, payload):
     db.execute(
-        """INSERT INTO users (id, email, password_hash, full_name, role)
-           VALUES (?, ?, ?, ?, ?)""",
+        """INSERT INTO users (id, email, password_hash, full_name, role, auth_provider)
+           VALUES (?, ?, ?, ?, ?, ?)""",
         (
             event["aggregate_id"],
             payload["email"],
             payload["password_hash"],
             payload["full_name"],
             payload["role"],
+            payload.get("auth_provider", "password"),
         ),
     )
 
@@ -128,8 +132,8 @@ def _rescreen_requested(event, payload):
 
 def _status(event, payload):
     db.execute(
-        "UPDATE applications SET status = 'Interview' WHERE id = ?",
-        (event["aggregate_id"],),
+        "UPDATE applications SET status = 'Interview', decision_reason = ? WHERE id = ?",
+        (payload.get("reason"), event["aggregate_id"]),
     )
 
 

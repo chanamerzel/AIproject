@@ -17,6 +17,9 @@ x-app-env: &app-env
   WORKER_POLL_SECONDS: ${WORKER_POLL_SECONDS:-20}
   # Wait between attempts to send a decision email that failed (3 attempts in total).
   EMAIL_RETRY_SECONDS: ${EMAIL_RETRY_SECONDS:-300}
+  # Sign-in with Google (Web OAuth client). Empty = hide the button.
+  GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+  GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
 
 x-app-volumes: &app-volumes
   - fitscreen_data:/app/data

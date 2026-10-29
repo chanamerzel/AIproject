@@ -1,4 +1,4 @@
-from flask import Blueprint, current_app, flash, redirect, render_template, request, url_for
+from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
 
 from app.commands.jobs import close_job, draft_job, open_job
 from app.queries.applications import get_application_by_candidate_job, list_for_job
@@ -17,13 +17,13 @@ def table():
     status = request.args.get("status") or None
     user = current_user()
     if user["role"] == "candidate":
-        status = status or "Open"
+        status = "Open"
     jobs = list_jobs(status=status, q=q or None)
     return render_template("jobs/table.html", jobs=jobs, q=q, status=status or "")
 
 
 @bp.route("/new", methods=["GET", "POST"])
-@role_required("hr", "hiring_manager")
+@role_required("hr")
 def create():
     if request.method == "POST":
         try:
@@ -39,7 +39,7 @@ def create():
         except ValueError as exc:
             flash(str(exc), "danger")
             return render_template("jobs/form.html")
-        flash("המשרה נשמרה כטיוטה. מנהל גיוס צריך לאשר פתיחה.", "success")
+        flash("המשרה נשמרה כטיוטה. מנהל הגיוס יאשר את פתיחתה לקבלת מועמדויות.", "success")
         return redirect(url_for("jobs.detail", job_id=job_id))
     return render_template("jobs/form.html")
 
@@ -52,10 +52,12 @@ def detail(job_id):
         flash("משרה לא נמצאה", "danger")
         return redirect(url_for("jobs.table"))
     user = current_user()
+    if user["role"] == "candidate" and job["status"] != "Open":
+        abort(404)
     applications = []
     my_application = None
     if user["role"] in ("hr", "hiring_manager"):
-        applications = list_for_job(job_id, request.args.get("app_status") or None)
+        applications = list_for_job(job_id, request.args.get("app_status") or None, shape="summary")
     else:
         my_application = get_application_by_candidate_job(user["id"], job_id)
     return render_template(
@@ -78,7 +80,7 @@ def open_route(job_id):
 
 
 @bp.route("/<job_id>/close", methods=["POST"])
-@role_required("hr", "hiring_manager")
+@role_required("hiring_manager")
 def close_route(job_id):
     close_job(job_id, current_user()["id"])
     flash("המשרה נסגרה", "success")

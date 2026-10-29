@@ -1,8 +1,7 @@
-from tests.conftest import logout, open_python_job, register
+from tests.conftest import login, logout, open_python_job, register
 
 
-def test_hr_creates_draft_only_manager_opens(client):
-    register(client, "hr@x.test", "hr")
+def _draft(client):
     page = client.post(
         "/jobs/new",
         data={
@@ -15,15 +14,37 @@ def test_hr_creates_draft_only_manager_opens(client):
         },
         follow_redirects=True,
     )
-    html = page.get_data(as_text=True)
-    assert "טיוטה" in html
-    job_id = page.request.path.split("/")[-1]
-    forbidden = client.post(f"/jobs/{job_id}/open", follow_redirects=True)
-    assert forbidden.status_code == 403
+    return page, page.request.path.split("/")[-1]
+
+
+def test_hr_drafts_and_hiring_manager_opens(client):
+    register(client, "hr@x.test", "hr")
+    page, job_id = _draft(client)
+    assert "טיוטה" in page.get_data(as_text=True)
+    assert client.post(f"/jobs/{job_id}/open").status_code == 403
     logout(client)
+
     register(client, "hm@x.test", "hiring_manager")
     opened = client.post(f"/jobs/{job_id}/open", follow_redirects=True)
+    assert opened.status_code == 200
     assert "פתוחה" in opened.get_data(as_text=True)
+
+
+def test_hiring_manager_cannot_draft_or_decide(client):
+    register(client, "hm@x.test", "hiring_manager")
+    assert client.get("/jobs/new").status_code == 403
+    assert client.post("/applications/any/decide", data={"decision": "reject"}).status_code == 403
+    assert client.post("/applications/any/rescreen", data={"reason": "x"}).status_code == 403
+
+
+def test_only_hiring_manager_closes(client):
+    job_id = open_python_job(client)
+    login(client, "hr@x.test")
+    assert client.post(f"/jobs/{job_id}/close").status_code == 403
+    logout(client)
+    login(client, "hm@x.test")
+    closed = client.post(f"/jobs/{job_id}/close", follow_redirects=True)
+    assert "סגורה" in closed.get_data(as_text=True)
 
 
 def test_search_finds_open_job(client):

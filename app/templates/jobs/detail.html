@@ -1,28 +1,42 @@
 {% extends "base.html" %}
 {% block title %}{{ job.title }}{% endblock %}
 {% block body %}
-<div class="d-flex justify-content-between align-items-start mb-3">
+<nav class="crumbs" aria-label="מיקום בדף">
+  <a href="{{ url_for('jobs.table') }}">משרות</a>
+  <span class="sep" aria-hidden="true">/</span>
+  <span>{{ job.title }}</span>
+</nav>
+
+<div class="page-head">
   <div>
-    <h1 class="h3 mb-1">{{ job.title }}</h1>
-    <p class="mb-0">
+    <p class="eyebrow">פרטי משרה</p>
+    <h1>{{ job.title }}</h1>
+    <div class="meta-row mt-2">
       <span class="badge text-bg-{{ STATUS_BADGE[job.status] }}">{{ STATUS_LABELS[job.status] }}</span>
-      <span class="text-secondary">{{ job.location }} · {{ job.applicant_count }} נרשמים · ניסיון מ-{{ job.min_years }} שנים</span>
-    </p>
+      <span>{{ job.location }}</span>
+      <span>{{ job.applicant_count }} נרשמים</span>
+      <span>ניסיון מ-{{ job.min_years }} שנים</span>
+    </div>
   </div>
-  <div class="d-flex gap-2">
+  <div class="action-row">
     {% if current_user.role == 'hiring_manager' and job.status == 'Draft' %}
     <form method="post" action="{{ url_for('jobs.open_route', job_id=job.id) }}">
-      <button class="btn btn-success" type="submit">אישור פתיחה</button>
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <button class="btn btn-success" type="submit">אישור פתיחה לקבלת מועמדויות</button>
     </form>
     {% endif %}
-    {% if current_user.role in ['hr','hiring_manager'] and job.status == 'Open' %}
+    {% if current_user.role == 'hr' and job.status == 'Draft' %}
+    <span class="pill">ממתינה לאישור מנהל גיוס</span>
+    {% endif %}
+    {% if current_user.role == 'hiring_manager' and job.status == 'Open' %}
     <form method="post" action="{{ url_for('jobs.close_route', job_id=job.id) }}">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
       <button class="btn btn-outline-dark" type="submit">סגירת משרה</button>
     </form>
     {% endif %}
     {% if current_user.role in ['hr','hiring_manager'] %}
     <a class="btn btn-primary" href="{{ url_for('jobs.ranking', job_id=job.id) }}">דירוג מועמדים</a>
-    <a class="btn btn-outline-primary" href="{{ url_for('jobs.semantic', job_id=job.id) }}">התאמה סמנטית</a>
+    <a class="btn btn-outline-primary" href="{{ url_for('jobs.semantic', job_id=job.id) }}">דמיון למשרה</a>
     {% endif %}
   </div>
 </div>
@@ -31,12 +45,26 @@
   <div class="col-lg-7">
     <div class="card p-4 mb-3">
       <h2 class="h5">תיאור</h2>
-      <p class="mb-0" style="white-space:pre-wrap">{{ job.description }}</p>
+      <p class="prose-block">{{ job.description }}</p>
     </div>
     <div class="card p-4">
       <h2 class="h5">כישורים</h2>
-      <p><strong>חובה:</strong> {{ job.must_have_skills }}</p>
-      <p class="mb-0"><strong>רצוי:</strong> {{ job.nice_to_have_skills or '—' }}</p>
+      <p class="mb-2"><strong>חובה</strong></p>
+      <ul class="skill-list mb-3">
+        {% for skill in job.must_have_skills.split(',') %}
+        <li class="chip">{{ skill.strip() }}</li>
+        {% endfor %}
+      </ul>
+      <p class="mb-2"><strong>רצוי</strong></p>
+      {% if job.nice_to_have_skills %}
+      <ul class="skill-list mb-0">
+        {% for skill in job.nice_to_have_skills.split(',') %}
+        <li class="chip chip-muted">{{ skill.strip() }}</li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="muted mb-0">—</p>
+      {% endif %}
     </div>
   </div>
   <div class="col-lg-5">
@@ -47,18 +75,20 @@
       <p class="mb-0 text-secondary">ניתן להגיש רק למשרה פתוחה.</p>
       {% elif my_application %}
       <p>כבר הגשת מועמדות.</p>
-      <a href="{{ url_for('applications.detail', application_id=my_application.id) }}">לצפייה במועמדות</a>
+      <a class="btn btn-outline-primary" href="{{ url_for('applications.detail', application_id=my_application.id) }}">לצפייה במועמדות</a>
       {% else %}
       <form method="post" action="{{ url_for('applications.apply', job_id=job.id) }}" enctype="multipart/form-data">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
         <label class="form-label" for="cv">קורות חיים (TXT או PDF עם טקסט)</label>
         <input class="form-control mb-3" id="cv" name="cv" type="file" accept=".txt,.pdf,.md" required>
-        <button class="btn btn-primary" type="submit">שליחה</button>
+        <button class="btn btn-primary w-100" type="submit">שליחה</button>
       </form>
       {% endif %}
     </div>
     {% else %}
     <div class="card p-4">
       <h2 class="h5">מועמדים</h2>
+      {% if applications %}
       <div class="table-responsive">
         <table class="table table-sm mb-0">
           <thead><tr><th>שם</th><th>סטטוס</th><th>ציון סוכן</th><th></th></tr></thead>
@@ -70,12 +100,16 @@
               <td>{{ app.agent_score if app.agent_score is not none else '—' }}</td>
               <td><a href="{{ url_for('applications.detail', application_id=app.id) }}">דוח</a></td>
             </tr>
-            {% else %}
-            <tr><td colspan="4" class="text-secondary">אין מועמדויות.</td></tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
+      {% else %}
+      <div class="empty-state py-4">
+        <strong>אין מועמדויות</strong>
+        <p class="mb-0">כשתתקבל הגשה היא תופיע כאן.</p>
+      </div>
+      {% endif %}
     </div>
     {% endif %}
   </div>

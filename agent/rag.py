@@ -11,6 +11,7 @@ import hashlib
 import math
 import os
 import re
+import threading
 
 HASH_DIM = 96
 MODEL_NAME = "all-MiniLM-L6-v2"
@@ -60,13 +61,29 @@ def chroma_path() -> str:
     return os.getenv("CHROMA_PATH", "chroma_data")
 
 
-def _collection():
-    import chromadb
+_chroma_lock = threading.Lock()
+_chroma_client = None
+_chroma_path = None
+_chroma_collections: dict = {}
 
-    client = chromadb.PersistentClient(path=chroma_path())
-    # Separate collections per embedding space: vectors of different models are not comparable.
+
+def _collection():
+    """Reuse one Chroma client per data directory. Opening it parses the index from disk."""
+    global _chroma_client, _chroma_path
+    path = chroma_path()
     name = "cv_embeddings_hash" if _use_fake() else "cv_embeddings_minilm"
-    return client.get_or_create_collection(name=name, metadata={"hnsw:space": "cosine"})
+    with _chroma_lock:
+        if _chroma_client is None or _chroma_path != path:
+            import chromadb
+
+            _chroma_client = chromadb.PersistentClient(path=path)
+            _chroma_path = path
+            _chroma_collections.clear()
+        collection = _chroma_collections.get(name)
+        if collection is None:
+            collection = _chroma_client.get_or_create_collection(name=name, metadata={"hnsw:space": "cosine"})
+            _chroma_collections[name] = collection
+        return collection
 
 
 def _chunks(text: str, size: int = 700) -> list[str]:
@@ -104,12 +121,13 @@ def _job_text(job: dict) -> str:
 
 def similar_for_job(job: dict, limit: int = 8) -> list[dict]:
     col = _collection()
-    if col.count() == 0:
+    indexed = col.count()
+    if indexed == 0:
         return []
     try:
         result = col.query(
             query_embeddings=_embed([_job_text(job)]),
-            n_results=min(limit, col.count()),
+            n_results=min(limit, indexed),
             where={"$and": [{"job_id": job["id"]}, {"kind": "full"}]},
             include=["distances", "metadatas", "documents"],
         )

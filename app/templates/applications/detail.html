@@ -1,77 +1,140 @@
 {% extends "base.html" %}
 {% block title %}מועמדות{% endblock %}
 {% block body %}
-<h1 class="h3">{{ application.job_title }}</h1>
-<p>
-  {{ application.candidate_name }} · {{ application.candidate_email }}
-  · <span class="badge text-bg-{{ STATUS_BADGE[application.status] }}">{{ STATUS_LABELS[application.status] }}</span>
-  {% if application.agent_score is not none %}· ציון {{ application.agent_score }}{% endif %}
-</p>
+<nav class="crumbs" aria-label="מיקום בדף">
+  {% if current_user.role == 'candidate' %}
+  <a href="{{ url_for('applications.mine') }}">המועמדויות שלי</a>
+  {% else %}
+  <a href="{{ url_for('jobs.table') }}">משרות</a>
+  {% endif %}
+  <span class="sep" aria-hidden="true">/</span>
+  <span>{{ application.job_title }}</span>
+</nav>
+<div class="page-head">
+  <div>
+    <p class="eyebrow">מועמדות</p>
+    <h1>{{ application.job_title }}</h1>
+    <div class="meta-row mt-2">
+      <span>{{ application.candidate_name }}</span>
+      <span>{{ application.candidate_email }}</span>
+      <span class="badge text-bg-{{ STATUS_BADGE[application.status] }}">{{ STATUS_LABELS[application.status] }}</span>
+      {% if report %}<span class="chip">ציון {{ report.overall_score }}</span>
+      {% elif application.agent_score is not none %}<span class="chip">ציון {{ application.agent_score }}</span>{% endif %}
+    </div>
+  </div>
+</div>
 
 <div class="row g-3">
   <div class="col-lg-7">
     <div class="card p-4 mb-3">
-      <h2 class="h5">דוח סוכן ההערכה</h2>
+      <h2 class="h5">סיכום לצוות הגיוס</h2>
       {% if current_user.role == 'candidate' %}
       <p class="mb-0 text-secondary">המועמדות בטיפול צוות הגיוס. סטטוס נוכחי: {{ STATUS_LABELS[application.status] }}.</p>
       {% elif application.status == 'ScreeningFailed' %}
-      <div class="alert alert-danger mb-0">
+      <div class="alert alert-danger mb-0" role="alert">
         הסוכן נכשל שלוש פעמים בהערכת המועמדות. השגיאה האחרונה: {{ last_failure or 'לא ידוע' }}
       </div>
       {% elif not report %}
       <p class="mb-0 text-secondary">
         {% if application.status == 'Screening' %}הסוכן מעריך את המועמדות כעת.
-        {% else %}המועמדות בתור. הסוכן רץ כתהליך נפרד (<code>agent.worker</code>) ויעריך אותה בסבב הקרוב.{% endif %}
+        {% else %}המועמדות בתור. ההערכה תרוץ ברקע בסבב הקרוב.{% endif %}
         {% if last_failure %}<br><span class="text-danger small">ניסיון קודם נכשל: {{ last_failure }}</span>{% endif %}
       </p>
       {% else %}
-      <div class="d-flex flex-wrap gap-3 mb-3">
-        <div class="border rounded p-2 text-center"><div class="small text-secondary">ציון כולל</div><div class="fs-4 fw-bold">{{ report.overall_score }}</div></div>
-        <div class="border rounded p-2 text-center"><div class="small text-secondary">כיסוי דרישות</div><div class="fs-5">{{ report.skill_coverage }}</div></div>
-        <div class="border rounded p-2 text-center"><div class="small text-secondary">התאמה סמנטית</div><div class="fs-5">{{ report.semantic_fit }}</div></div>
-        <div class="border rounded p-2 text-center"><div class="small text-secondary">ראיות רשת</div><div class="fs-5">{{ report.web_score if report.web_score is not none else '—' }}</div></div>
-        <div class="border rounded p-2 text-center"><div class="small text-secondary">המלצה</div><div class="fs-5">{{ RECOMMENDATION_LABELS.get(report.recommendation, report.recommendation) }}</div></div>
+      <div class="score-grid mb-3">
+        <div class="score-card score-main"><div class="small text-secondary">ציון כולל</div><strong>{{ report.overall_score }}</strong></div>
+        <div class="score-card"><div class="small text-secondary">מה כתוב בקורות החיים</div><strong>{{ report.skill_coverage }}</strong></div>
+        <div class="score-card"><div class="small text-secondary">כמה זה דומה למשרה</div><strong>{{ report.semantic_fit }}</strong></div>
+        <div class="score-card"><div class="small text-secondary">מה מצאנו ברשת</div><strong>{{ report.web_score if report.web_score is not none else '—' }}</strong></div>
+        <div class="score-card"><div class="small text-secondary">המלצה</div><strong>{{ RECOMMENDATION_LABELS.get(report.recommendation, report.recommendation) }}</strong></div>
       </div>
       {% if report.summary %}<p>{{ report.summary }}</p>{% endif %}
-      {% if report.strengths %}<p class="mb-1"><strong>חוזקות:</strong> {{ report.strengths | join(', ') }}</p>{% endif %}
-      {% if report.gaps %}<p class="mb-1"><strong>פערים:</strong> {{ report.gaps | join(', ') }}</p>{% endif %}
-      {% if report.cv_excerpts %}
-      <h3 class="h6 mt-3">קטעי קורות חיים רלוונטיים (RAG)</h3>
-      <ul>{% for x in report.cv_excerpts %}<li class="small" style="white-space: pre-line">{{ x }}</li>{% endfor %}</ul>
-      {% endif %}
-      {% if report.web_evidence %}
-      <h3 class="h6">ראיות מהרשת (Tavily MCP)</h3>
-      <ul>
-        {% for w in report.web_evidence %}
-        <li class="small">
-          {% if w.url %}<a href="{{ w.url }}" target="_blank" rel="noopener">{{ w.title or w.url }}</a>{% else %}{{ w.title }}{% endif %}
-          {% if w.finding %} — {{ w.finding }}{% endif %}
-        </li>
-        {% endfor %}
-      </ul>
-      {% endif %}
-      {% if report.delegation %}
-      <h3 class="h6 mt-3">חלוקת העבודה בין הסוכנים (Deep Agent)</h3>
-      <table class="table table-sm small mb-2">
-        <thead><tr><th>תת-סוכן</th><th>כלי</th></tr></thead>
+      {% if report.skill_evidence %}
+      <h3 class="h6">כישורי חובה</h3>
+      <table class="table table-sm small mb-3">
+        <thead><tr><th>כישור</th><th>בקורות החיים</th><th>המשפט</th></tr></thead>
         <tbody>
-          {% for step in report.delegation %}
-          <tr><td>{{ step.by }}</td><td><code>{{ step.tool }}</code></td></tr>
+          {% for item in report.skill_evidence %}
+          <tr>
+            <td>{{ item.skill }}</td>
+            <td>{{ 'נמצא' if item.matched else 'חסר' }}</td>
+            <td>{{ item.quote or '—' }}</td>
+          </tr>
           {% endfor %}
         </tbody>
       </table>
       {% endif %}
-      <p class="small text-secondary mb-0 mt-2">
-        מנוע: {{ report.runtime }} · כלים: {{ (report.tools_used or []) | join(', ') }}
-        {% if report.tools_skipped_by_agent %}· הסוכן דילג והמערכת השלימה: {{ report.tools_skipped_by_agent | join(', ') }}{% endif %}
-        {% if report.agent_report_valid == false %}· הסוכן לא החזיר דוח תקין; הציונים חושבו מתוצאות הכלים{% endif %}
+      {% if report.github_portfolio and report.github_portfolio.ok %}
+      <h3 class="h6 mt-3">תיק GitHub</h3>
+      <p class="mb-1">
+        {{ report.github_portfolio.public_repos if report.github_portfolio.public_repos is not none else (report.github_portfolio.repos or [])|length }} מאגרים ציבוריים
+        {% if report.github_portfolio.languages %} · שפות: {{ report.github_portfolio.languages | join(', ') }}{% endif %}
+        {% if report.github_portfolio.matched_skills %} · מתאים למשרה: {{ report.github_portfolio.matched_skills | join(', ') }}{% endif %}
+        {% if report.github_portfolio.last_activity %} · פעילות אחרונה: {{ report.github_portfolio.last_activity }}{% endif %}
+        {% if report.github_portfolio.html_url %}
+        · <a href="{{ report.github_portfolio.html_url }}" target="_blank" rel="noopener">פתח חשבון</a>
+        {% endif %}
       </p>
+      {% if report.github_portfolio.repos %}
+      <ul class="mb-2">
+        {% for repo in report.github_portfolio.repos[:5] %}
+        <li class="small">
+          {% if repo.html_url %}<a href="{{ repo.html_url }}" target="_blank" rel="noopener">{{ repo.name }}</a>{% else %}{{ repo.name }}{% endif %}
+          {% if repo.language %} · {{ repo.language }}{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+      {% elif report.github_status %}
+      <p class="mb-1"><strong>GitHub:</strong> {{ GITHUB_LABELS.get(report.github_status, report.github_status) }}
+        {% if report.profile and report.profile.github_url %}
+        · <a href="{{ report.profile.github_url }}" target="_blank" rel="noopener">פתח חשבון</a>
+        {% endif %}
+      </p>
+      {% endif %}
+      {% if report.profile and report.profile.linkedin_url %}
+      <p class="mb-1"><strong>LinkedIn:</strong> {{ LINKEDIN_LABELS.get(report.linkedin_status, 'יש קישור') }}
+        · <a href="{{ report.profile.linkedin_url }}" target="_blank" rel="noopener">פתח פרופיל</a>
+      </p>
+      {% endif %}
+      {% if report.strengths %}<p class="mb-1"><strong>חוזקות:</strong> {{ report.strengths | join(', ') }}</p>{% endif %}
+      {% if report.gaps %}<p class="mb-1"><strong>פערים:</strong> {{ report.gaps | join(', ') }}</p>{% endif %}
+      {% if report.cv_excerpts %}
+      <h3 class="h6 mt-3">קטע שדומה למשרה</h3>
+      <p class="small prose-block">{{ report.cv_excerpts[0] }}</p>
+      {% endif %}
+      {% if application.cv_text %}
+      <h3 class="h6 mt-3">קורות החיים שהוגשו</h3>
+      <pre class="small cv-box">{{ application.cv_text }}</pre>
+      {% endif %}
+      <h3 class="h6">חיפוש השם ברשת</h3>
+      {% if report.web_note %}<p class="mb-2">{{ report.web_note }}</p>{% endif %}
+      {% if report.web_evidence %}
+      <ul class="mb-2">
+        {% for w in report.web_evidence %}
+        <li class="small">
+          {% if w.url %}<a href="{{ w.url }}" target="_blank" rel="noopener">{{ w.title or w.url }}</a>{% else %}{{ w.title }}{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% elif not report.web_note %}
+      <p class="mb-2 text-secondary">לא נמצאו מקורות ברשת.</p>
+      {% endif %}
+      {% if report.agent_state %}
+      <h3 class="h6 mt-4">מה נבדק</h3>
+      <ol class="agent-plan mb-0">
+        {% for step in report.agent_state.plan %}
+        <li class="{{ 'is-done' if step.done else '' }}">{{ step.step }}</li>
+        {% endfor %}
+      </ol>
+      {% endif %}
       {% endif %}
     </div>
     {% if can_rescreen %}
     <div class="card p-4 mb-3">
       <h2 class="h5">הערכה חוזרת</h2>
       <form method="post" action="{{ url_for('applications.rescreen_route', application_id=application.id) }}">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
         <label class="form-label" for="rescreen-reason">למה נדרשת הערכה חוזרת? (נשמר באירוע)</label>
         <input class="form-control mb-2" id="rescreen-reason" name="reason" required
                placeholder="למשל: עודכנו דרישות המשרה, או ההערכה הקודמת נכשלה">
@@ -82,14 +145,14 @@
     {% if history %}
     <div class="card p-4 mb-3">
       <h2 class="h5">היסטוריית הערכות</h2>
-      <p class="small text-secondary">נבנית מאירועי ה-Event Store. שום הערכה קודמת לא נמחקת.</p>
+      <p class="small text-secondary">כל בדיקה קודמת נשמרת.</p>
       <table class="table table-sm small mb-0">
         <thead><tr><th>מתי</th><th>מה</th><th>ציון</th><th>שינוי</th><th>המלצה</th><th>מנוע</th></tr></thead>
         <tbody>
           {% for h in history %}
           {% if h.kind == 'screened' %}
           <tr>
-            <td>{{ h.at[:16] | replace('T', ' ') }}</td><td>הערכת סוכן</td>
+            <td>{{ h.at | local_time }}</td><td>הערכת סוכן</td>
             <td class="fw-bold">{{ h.overall_score }}</td>
             <td>{% if h.delta is not none %}{{ '%+d' | format(h.delta) }}{% else %}—{% endif %}</td>
             <td>{{ RECOMMENDATION_LABELS.get(h.recommendation, h.recommendation) }}</td>
@@ -97,7 +160,7 @@
           </tr>
           {% else %}
           <tr class="table-light">
-            <td>{{ h.at[:16] | replace('T', ' ') }}</td><td colspan="5">בקשת הערכה חוזרת: {{ h.reason }}</td>
+            <td>{{ h.at | local_time }}</td><td colspan="5">בקשת הערכה חוזרת: {{ h.reason }}</td>
           </tr>
           {% endif %}
           {% endfor %}
@@ -105,13 +168,18 @@
       </table>
     </div>
     {% endif %}
-    {% if current_user.role in ['hr','hiring_manager'] and application.status in ['Screened','Interview'] %}
+    {% if current_user.role == 'hiring_manager' and application.status in ['Screened','Interview'] %}
+    <div class="card p-4 muted">ההחלטה על המועמדות היא של המגייסת. אתה רואה את הדוח ואת הדירוג.</div>
+    {% endif %}
+    {% if current_user.role == 'hr' and application.status in ['Screened','Interview'] %}
     <div class="card p-4">
       <h2 class="h5">החלטת גיוס</h2>
       <form method="post" action="{{ url_for('applications.decide_route', application_id=application.id) }}">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
         <div class="mb-3">
           <label class="form-label" for="decision">החלטה</label>
           <select class="form-select" id="decision" name="decision" required>
+            <option value="" selected disabled>בחרי החלטה</option>
             <option value="interview">הזמנה לראיון</option>
             <option value="offer">הצעת עבודה</option>
             <option value="reject">דחייה</option>
@@ -126,24 +194,24 @@
     </div>
     {% endif %}
     {% if application.decision_reason %}
-    <div class="alert alert-info mt-3">נימוק אחרון: {{ application.decision_reason }}</div>
+    <div class="alert alert-info mt-3" role="status">נימוק אחרון: {{ application.decision_reason }}</div>
     {% endif %}
   </div>
   <div class="col-lg-5">
     {% if emails %}
     <div class="card p-4 mb-3">
-      <h2 class="h5">מייל למועמד (Gmail MCP)</h2>
+      <h2 class="h5">מייל למועמד</h2>
       <ul class="list-unstyled mb-0">
         {% for m in emails %}
         <li class="mb-2">
           <strong>{{ DECISION_LABELS.get(m.decision, m.decision) }}</strong>
-          <span class="small text-secondary">· {{ m.decided_at[:16] | replace('T', ' ') }}</span>
+          <span class="small text-secondary">· {{ m.decided_at | local_time }}</span>
           <div class="small">
             {% if m.status == 'sent' %}<span class="text-success">מייל נשלח ל-{{ m.to }}</span>{% if m.subject %} · {{ m.subject }}{% endif %}
             {% elif m.status == 'failed_final' %}<span class="text-danger">שליחת המייל נכשלה אחרי {{ m.attempts }} ניסיונות: {{ m.error }}</span>
             {% elif m.status == 'failed' %}<span class="text-warning">ניסיון {{ m.attempts }} נכשל, ה-worker ינסה שוב: {{ m.error }}</span>
             {% elif m.status == 'legacy' %}<span class="text-secondary">נרשם לפני חיבור Gmail; המייל לא נשלח בפועל</span>
-            {% else %}<span class="text-secondary">ממתין לשליחה. ה-worker שולח דרך Gmail MCP.</span>{% endif %}
+            {% else %}<span class="text-secondary">ממתין לשליחה.</span>{% endif %}
           </div>
         </li>
         {% endfor %}
@@ -151,12 +219,12 @@
     </div>
     {% endif %}
     <div class="card p-4">
-      <h2 class="h5">ציר זמן אירועים</h2>
-      <ol class="mb-0">
+      <h2 class="h5">היסטוריית הפעולות</h2>
+      <ol class="timeline mb-0">
         {% for ev in timeline %}
         <li class="mb-2">
-          <strong>{{ ev.event_type }}</strong>
-          <div class="small text-secondary">{{ ev.occurred_at }} · v{{ ev.version }}</div>
+          <strong>{{ EVENT_LABELS.get(ev.event_type, ev.event_type) }}</strong>
+          <div class="small text-secondary">{{ ev.occurred_at | local_time }} · v{{ ev.version }}</div>
         </li>
         {% endfor %}
       </ol>

@@ -1,7 +1,7 @@
 import uuid
 
 from app.event_store import EventStore
-from app.queries.applications import get_application, get_application_by_candidate_job
+from app.queries.applications import application_state, get_application_by_candidate_job
 from app.queries.jobs import get_job
 
 
@@ -36,7 +36,7 @@ def submit_application(job_id: str, candidate_id: str, cv_path: str, cv_text: st
 
 
 def start_screening(application_id: str):
-    app_row = get_application(application_id)
+    app_row = application_state(application_id)
     if not app_row:
         raise ValueError("מועמדות לא נמצאה")
     EventStore.append(
@@ -49,7 +49,7 @@ def start_screening(application_id: str):
 
 
 def fail_screening(application_id: str, error: str, final: bool):
-    if not get_application(application_id):
+    if not application_state(application_id):
         raise ValueError("מועמדות לא נמצאה")
     EventStore.append(
         "ApplicationScreeningFailed",
@@ -61,8 +61,7 @@ def fail_screening(application_id: str, error: str, final: bool):
 
 
 def complete_screening(application_id: str, report: dict):
-    app_row = get_application(application_id)
-    if not app_row:
+    if not application_state(application_id):
         raise ValueError("מועמדות לא נמצאה")
     EventStore.append(
         "ApplicationScreeningCompleted",
@@ -77,7 +76,7 @@ RESCREENABLE = {"Screened", "ScreeningFailed"}
 
 
 def request_rescreen(application_id: str, reason: str, actor_id: str):
-    app_row = get_application(application_id)
+    app_row = application_state(application_id)
     if not app_row:
         raise ValueError("מועמדות לא נמצאה")
     if app_row["status"] not in RESCREENABLE:
@@ -94,7 +93,7 @@ def request_rescreen(application_id: str, reason: str, actor_id: str):
 
 
 def decide(application_id: str, decision: str, reason: str, actor_id: str):
-    app_row = get_application(application_id)
+    app_row = application_state(application_id)
     if not app_row:
         raise ValueError("מועמדות לא נמצאה")
     if app_row["status"] not in {"Screened", "Interview"}:
@@ -104,9 +103,9 @@ def decide(application_id: str, decision: str, reason: str, actor_id: str):
         "reject": "ApplicationRejected",
         "offer": "OfferExtended",
     }
-    event_type = mapping.get(decision)
+    event_type = mapping.get((decision or "").strip())
     if not event_type:
-        raise ValueError("החלטה לא חוקית")
+        raise ValueError("יש לבחור החלטה")
     EventStore.append(
         event_type,
         "Application",
@@ -123,7 +122,11 @@ def _open_decision_email(application_id: str, decision_event_id: str) -> dict:
     from app.queries.notifications import OPEN_STATUSES, decision_emails
 
     state = next(
-        (s for s in decision_emails(application_id) if s["decision_event_id"] == decision_event_id),
+        (
+            s
+            for s in decision_emails(application_id, EventStore.for_aggregate(application_id))
+            if s["decision_event_id"] == decision_event_id
+        ),
         None,
     )
     if not state:

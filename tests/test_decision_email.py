@@ -83,7 +83,7 @@ def test_decision_view_only_records_the_decision(app, client, gmail):
     page = _decide(client, application_id, "interview", "Strong Flask background").get_data(as_text=True)
 
     assert gmail.calls == []
-    assert "בתהליך הרקע" in page and "ממתין לשליחה" in page
+    assert "ההחלטה נשמרה" in page and "ממתין לשליחה" in page
     with app.app_context():
         assert _events(application_id, "DecisionEmailSent", "DecisionEmailFailed") == []
         decision = _events(application_id, "InterviewScheduled")[0]
@@ -182,10 +182,46 @@ def test_email_written_before_gmail_worker_closes_the_decision(app, client, gmai
 def test_compose_email_is_deterministic_hebrew():
     item = {"decision": "reject", "job_title": "Python Backend", "candidate_name": "Dana", "reason": "<b>SQL</b>"}
     subject, text, html_body = compose_email(item)
-    assert subject == "עדכון לגבי מועמדותך למשרת Python Backend"
-    assert text.startswith("שלום Dana,") and "דברי צוות הגיוס: <b>SQL</b>" in text
+    assert subject == "עדכון על המועמדות למשרת Python Backend"
+    assert text.startswith("שלום Dana,") and "לא ממשיכים איתך למשרת Python Backend, מכיוון ש<b>SQL</b>." in text
     assert "&lt;b&gt;SQL&lt;/b&gt;" in html_body
     assert compose_email(item) == (subject, text, html_body)
+
+
+def test_closing_a_job_emails_everyone_except_rejected(app, client, gmail):
+    application_id = _screened_application(app, client)
+    _decide(client, application_id, "reject", "Missing SQL")
+    with app.app_context():
+        from app.queries.applications import get_application
+
+        job_id = get_application(application_id)["job_id"]
+    logout(client)
+    register(client, "yossi@x.test", "candidate", "Yossi Candidate")
+    cv = Path("samples/cv_python.txt")
+    client.post(
+        f"/applications/apply/{job_id}",
+        data={"cv": (BytesIO(cv.read_bytes()), cv.name)},
+        follow_redirects=True,
+    )
+    logout(client)
+    login(client, "hm@x.test")
+    client.post(f"/jobs/{job_id}/close", follow_redirects=True)
+
+    with app.app_context():
+        yossi_id = next(row["id"] for row in list_for_job(job_id) if row["id"] != application_id)
+        assert send_pending_emails() == 2
+
+    by_id = {}
+    for call in gmail.calls:
+        by_id.setdefault(call["to"], []).append(call["subject"])
+    assert by_id["dana@x.test"] == ["עדכון על המועמדות למשרת Python Backend"]
+    assert by_id["yossi@x.test"] == ["המשרה Python Backend נסגרה"]
+    assert "לא ממשיכים איתך" in gmail.calls[0]["body"]
+    assert "המשרה Python Backend נסגרה" in gmail.calls[1]["body"]
+    with app.app_context():
+        assert _events(application_id, "JobClosureAnnounced") == []
+        assert _events(yossi_id, "JobClosureAnnounced")
+        assert pending_decision_emails() == []
 
 
 def test_gmail_mcp_contract(monkeypatch):

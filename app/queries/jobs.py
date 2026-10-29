@@ -6,7 +6,7 @@ def get_job(job_id: str):
 
 
 def list_jobs(status=None, q=None):
-    sql = "SELECT * FROM jobs WHERE 1=1"
+    sql = "SELECT id, title, location, status, min_years, applicant_count FROM jobs WHERE 1=1"
     params = []
     if status:
         sql += " AND status = ?"

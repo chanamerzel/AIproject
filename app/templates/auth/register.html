@@ -1,36 +1,69 @@
 {% extends "base.html" %}
-{% block title %}הרשמה{% endblock %}
+{% set staff = door == 'staff' %}
+{% block title %}{{ 'חשבון מגייס' if staff else 'הרשמה' }}{% endblock %}
 {% block body %}
-<div class="row justify-content-center">
-  <div class="col-md-6">
-    <div class="card p-4">
-      <h1 class="h3 mb-3">הרשמה</h1>
-      <p class="text-secondary">בסביבת הקורס כל תפקיד נרשם מהטופס. בפרודקשן HR היה מוזמן.</p>
-      <form method="post">
-        <div class="mb-3">
-          <label class="form-label" for="full_name">שם מלא</label>
-          <input class="form-control" id="full_name" name="full_name" required>
+<div class="auth-wrap">
+  <div class="card auth-card{% if staff %} auth-card-staff{% endif %}">
+    <p class="eyebrow">{{ 'FitScreen לצוות גיוס' if staff else 'FitScreen למועמדים' }}</p>
+    <h1 class="h3">{{ 'פתיחת חשבון מגייס' if staff else 'הרשמה' }}</h1>
+    <p class="lead">{{ 'מגייסת כותבת משרות ומחליטה על מועמדים. מנהל גיוס מאשר פתיחת משרה.' if staff else 'יוצרים חשבון מועמד ומגישים קורות חיים למשרות פתוחות.' }}</p>
+    <form method="post">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      {% if staff %}
+      <fieldset class="mb-3">
+        <legend class="form-label">התפקיד שלי</legend>
+        <div class="role-picker">
+          <label class="role-option">
+            <input type="radio" name="role" value="hr" required {% if request.form.get('role') == 'hr' %}checked{% endif %}>
+            <span><strong>מגייסת</strong><small>כותבת משרות, מדרגת ומחליטה</small></span>
+          </label>
+          <label class="role-option">
+            <input type="radio" name="role" value="hiring_manager" {% if request.form.get('role') == 'hiring_manager' %}checked{% endif %}>
+            <span><strong>מנהל גיוס</strong><small>מאשר פתיחה וסגירה של משרות</small></span>
+          </label>
         </div>
-        <div class="mb-3">
-          <label class="form-label" for="email">אימייל</label>
-          <input class="form-control" id="email" name="email" type="email" required>
-        </div>
-        <div class="mb-3">
-          <label class="form-label" for="password">סיסמה (לפחות 6 תווים)</label>
-          <input class="form-control" id="password" name="password" type="password" minlength="6" required>
-        </div>
-        <div class="mb-3">
-          <label class="form-label" for="role">תפקיד</label>
-          <select class="form-select" id="role" name="role" required>
-            <option value="candidate">מועמד</option>
-            <option value="hr">גיוס (HR)</option>
-            <option value="hiring_manager">מנהל גיוס</option>
-          </select>
-        </div>
-        <button class="btn btn-primary w-100" type="submit">יצירת חשבון</button>
-      </form>
-      <p class="mt-3 mb-0">כבר רשום? <a href="{{ url_for('auth.login') }}">כניסה</a></p>
+      </fieldset>
+      {% endif %}
+      <div class="mb-3">
+        <label class="form-label" for="full_name">שם מלא</label>
+        <input class="form-control" id="full_name" name="full_name" value="{{ request.form.get('full_name', '') }}" required autocomplete="name">
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="email">{{ 'אימייל בעבודה' if staff else 'אימייל' }}</label>
+        <input class="form-control" id="email" name="email" type="email" value="{{ request.form.get('email', '') }}" required autocomplete="email">
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="password">סיסמה</label>
+        <input class="form-control" id="password" name="password" type="password" minlength="6" required autocomplete="new-password" placeholder="לפחות 6 תווים">
+      </div>
+      <button class="btn btn-primary w-100" type="submit">יצירת חשבון</button>
+    </form>
+    {% if google_enabled %}
+    <div class="auth-divider"><span>או</span></div>
+    {% if staff %}
+    <div class="google-roles">
+      <a class="btn btn-google" href="{{ url_for('auth.google_start', door='staff', role='hr') }}">
+        {% include "auth/_google_mark.html" %}
+        Google כמגייסת
+      </a>
+      <a class="btn btn-google" href="{{ url_for('auth.google_start', door='staff', role='hiring_manager') }}">
+        {% include "auth/_google_mark.html" %}
+        Google כמנהל גיוס
+      </a>
     </div>
+    {% else %}
+    <a class="btn btn-google w-100" href="{{ url_for('auth.google_start', door='candidate') }}">
+      {% include "auth/_google_mark.html" %}
+      הרשמה עם Google
+    </a>
+    {% endif %}
+    {% endif %}
+    {% if staff %}
+    <p class="auth-switch">כבר יש חשבון? <a href="{{ url_for('auth.recruit_login') }}">כניסת מגייסים</a></p>
+    {% else %}
+    <p class="auth-switch">כבר יש חשבון? <a href="{{ url_for('auth.login') }}">כניסה</a></p>
+    <p class="auth-other-door">מגייסים? <a href="{{ url_for('auth.recruit_register') }}">פתיחת חשבון מגייס</a></p>
+    {% endif %}
   </div>
 </div>
 {% endblock %}
