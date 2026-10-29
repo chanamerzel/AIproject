@@ -1,34 +1,22 @@
 {% extends "base.html" %}
 {% block title %}משרות{% endblock %}
+{% block main_class %}page-shell jobs-page{% endblock %}
 {% block body %}
-<div class="page-head">
+<div class="jobs-top">
   <div>
-    <p class="eyebrow">גיוס</p>
-    <h1>משרות</h1>
+    <h1>משרות פתוחות</h1>
+    <p class="jobs-count">
+      {% if open_count == 1 %}משרה פתוחה אחת{% else %}<strong>{{ open_count }}</strong> משרות פתוחות{% endif %}
+    </p>
   </div>
   {% if current_user.role == 'hr' %}
   <a class="btn btn-primary" href="{{ url_for('jobs.create') }}">משרה חדשה</a>
   {% endif %}
 </div>
-<form class="filter-bar" method="get" role="search">
-  <div>
-    <label class="form-label" for="q">חיפוש משרה</label>
-    <input class="form-control" id="q" name="q" value="{{ q }}" placeholder="כותרת, תיאור, כישור או מיקום">
-  </div>
-  {% if current_user.role != 'candidate' %}
-  <div>
-    <label class="form-label" for="status">סטטוס</label>
-    <select class="form-select" id="status" name="status">
-      <option value="">כל הסטטוסים</option>
-      {% for s in ['Draft','Open','Closed'] %}
-      <option value="{{ s }}" {% if status == s %}selected{% endif %}>{{ STATUS_LABELS[s] }}</option>
-      {% endfor %}
-    </select>
-  </div>
-  {% endif %}
-  <div>
-    <button class="btn btn-outline-primary w-100" type="submit">חיפוש</button>
-  </div>
+<form class="jobs-search" method="get" role="search">
+  <label class="visually-hidden" for="q">חיפוש משרה</label>
+  <input class="form-control" id="q" name="q" value="{{ q }}" placeholder="כותרת, תיאור, כישור או מיקום">
+  <button class="btn btn-outline-primary" type="submit">חיפוש</button>
 </form>
 
 {% if jobs %}
@@ -36,7 +24,6 @@
   {% for job in jobs %}
   <article class="card job-card lift">
     <div class="meta-row">
-      <span class="badge text-bg-{{ STATUS_BADGE[job.status] }}">{{ STATUS_LABELS[job.status] }}</span>
       <span>{{ job.location }}</span>
       <span>{{ job.applicant_count }} נרשמים</span>
     </div>
@@ -48,32 +35,30 @@
   </article>
   {% endfor %}
 </div>
-
-<div class="card mt-4">
-  <div class="table-responsive">
-    <table class="table table-hover align-middle mb-0">
-      <caption class="px-3">טבלת משרות ({{ jobs|length }})</caption>
-      <thead>
-        <tr><th scope="col">משרה</th><th scope="col">מיקום</th><th scope="col">סטטוס</th><th scope="col">ניסיון</th><th scope="col">נרשמים</th><th scope="col"></th></tr>
-      </thead>
-      <tbody>
-        {% for job in jobs %}
-        <tr>
-          <td>{{ job.title }}</td>
-          <td>{{ job.location }}</td>
-          <td><span class="badge text-bg-{{ STATUS_BADGE[job.status] }}">{{ STATUS_LABELS[job.status] }}</span></td>
-          <td>{{ job.min_years }}+</td>
-          <td>{{ job.applicant_count }}</td>
-          <td><a href="{{ url_for('jobs.detail', job_id=job.id) }}">פרטים</a></td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
+{% if pages > 1 %}
+<nav class="jobs-pages" aria-label="דפדוף משרות">
+  {% if prev_url %}
+  <a href="{{ prev_url }}">הקודם</a>
+  {% else %}
+  <span class="is-disabled" aria-disabled="true">הקודם</span>
+  {% endif %}
+  {% for item in page_links %}
+    {% if item.current %}
+    <span class="is-current" aria-current="page">{{ item.n }}</span>
+    {% else %}
+    <a href="{{ item.url }}">{{ item.n }}</a>
+    {% endif %}
+  {% endfor %}
+  {% if next_url %}
+  <a href="{{ next_url }}">הבא</a>
+  {% else %}
+  <span class="is-disabled" aria-disabled="true">הבא</span>
+  {% endif %}
+</nav>
+{% endif %}
 {% else %}
 <div class="card empty-state">
-  <strong>אין משרות להצגה</strong>
+  <strong>אין משרות פתוחות להצגה</strong>
   <p class="mb-0">נסו חיפוש אחר{% if current_user.role == 'hr' %} או פתחו משרה חדשה{% endif %}.</p>
 </div>
 {% endif %}

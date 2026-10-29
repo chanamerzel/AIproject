@@ -2,24 +2,60 @@ from flask import Blueprint, abort, flash, redirect, render_template, request, u
 
 from app.commands.jobs import close_job, draft_job, open_job
 from app.queries.applications import get_application_by_candidate_job, list_for_job
-from app.queries.jobs import get_job, list_jobs
+from app.queries.jobs import count_jobs, get_job, list_jobs
 from app.queries.ranking import ranking_for_job
 from app.queries.semantic import similar_candidates_for_job
 from app.security import current_user, login_required, role_required
 
 bp = Blueprint("jobs", __name__, url_prefix="/jobs")
 
+JOBS_PAGE_SIZE = 6
+
+
+def _page_number():
+    raw = request.args.get("page", "1")
+    try:
+        return max(1, int(raw))
+    except (TypeError, ValueError):
+        return 1
+
 
 @bp.route("/")
 @login_required
 def table():
     q = request.args.get("q", "").strip()
-    status = request.args.get("status") or None
-    user = current_user()
-    if user["role"] == "candidate":
-        status = "Open"
-    jobs = list_jobs(status=status, q=q or None)
-    return render_template("jobs/table.html", jobs=jobs, q=q, status=status or "")
+    page = _page_number()
+    total = count_jobs(status="Open", q=q or None)
+    pages = max(1, (total + JOBS_PAGE_SIZE - 1) // JOBS_PAGE_SIZE) if total else 1
+    if page > pages:
+        page = pages
+    jobs = []
+    if total:
+        jobs = list_jobs(
+            status="Open",
+            q=q or None,
+            limit=JOBS_PAGE_SIZE,
+            offset=(page - 1) * JOBS_PAGE_SIZE,
+        )
+    pager_args = {"q": q} if q else {}
+    return render_template(
+        "jobs/table.html",
+        jobs=jobs,
+        q=q,
+        page=page,
+        pages=pages,
+        open_count=total,
+        prev_url=url_for("jobs.table", page=page - 1, **pager_args) if page > 1 else None,
+        next_url=url_for("jobs.table", page=page + 1, **pager_args) if page < pages else None,
+        page_links=[
+            {
+                "n": n,
+                "url": url_for("jobs.table", page=n, **pager_args),
+                "current": n == page,
+            }
+            for n in range(1, pages + 1)
+        ],
+    )
 
 
 @bp.route("/new", methods=["GET", "POST"])

@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#061525">
   <title>{% block title %}FitScreen{% endblock %}</title>
   <link href="{{ url_for('static', filename='vendor/bootstrap.rtl.min.css') }}" rel="stylesheet">
-  <link href="{{ url_for('static', filename='fitscreen.css') }}?v=7" rel="stylesheet">
+  <link href="{{ url_for('static', filename='fitscreen.css') }}?v=12" rel="stylesheet">
 </head>
 <body class="{% block body_class %}{% endblock %}">
 <a class="skip-link" href="#main">דילוג לתוכן</a>
@@ -24,7 +24,12 @@
       </a>
       {% if current_user %}
       <button class="nav-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-controls="mainNav" aria-expanded="false" aria-label="תפריט">
-        <span></span><span></span><span></span>
+        <svg class="icon-open" width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+          <path d="M3.5 5.5h13M3.5 10h13M3.5 14.5h13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+        <svg class="icon-close" width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+          <path d="M5.2 5.2 14.8 14.8M14.8 5.2 5.2 14.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
       </button>
       <div class="collapse nav-collapse" id="mainNav">
         <nav class="nav-links" aria-label="ניווט ראשי">
