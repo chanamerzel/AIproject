@@ -41,11 +41,20 @@ def list_jobs(status=None, q=None, limit=None, offset=0):
     return db.fetch_all(sql, tuple(page_params))
 
 
-def dashboard_rows():
-    return db.fetch_all(
-        """SELECT id, title, status, location, applicant_count, opened_at
-           FROM jobs WHERE status = 'Open' ORDER BY applicant_count DESC, title"""
+def dashboard_rows(limit=None, offset=0):
+    sql = (
+        "SELECT id, title, status, location, applicant_count, opened_at "
+        "FROM jobs WHERE status = 'Open' ORDER BY applicant_count DESC, title, id"
     )
+    params = []
+    if limit is not None:
+        if db.backend_name() == "mssql":
+            sql += " OFFSET ? ROWS FETCH NEXT ? ROWS ONLY"
+            params.extend([offset, limit])
+        else:
+            sql += " LIMIT ? OFFSET ?"
+            params.extend([limit, offset])
+    return db.fetch_all(sql, tuple(params))
 
 
 def application_status_counts():

@@ -10,7 +10,7 @@
 | F2 | HR יוצר Draft; רק HiringManager פותח וסוגר משרה; הוא רואה טיוטה ממתינה ברשימת המשרות ובלוח; HiringManager לא כותב משרה ולא מחליט (`tests/test_jobs.py`) |
 | F3 | חיפוש מחזיר משרה פתוחה לפי מילת מפתח; רשימת המשרות היא כרטיסים עם דפדוף וספירת משרות פתוחות, בלי טבלה (`tests/test_jobs.py`) |
 | F4 | הגשה יוצרת ApplicationSubmitted ומעלה applicant_count |
-| F5 | דשבורד סופר משרות Open ונרשמים |
+| F5 | דשבורד סופר משרות Open ונרשמים; טבלת הלוח מדפדפת והסיכום נשאר על כל המשרות (`tests/test_apply_dashboard.py`) |
 | F6 | הטמעת שני CV שונים מחזירה דירוג סמנטי |
 | F7 | worker על מועמדות Submitted מייצר ScreeningCompleted עם ציון |
 | F8 | Reject משנה סטטוס ונרשם אירוע; ה-view לא שולח ולא רושם מייל; ה-worker שולח פעם אחת לכל החלטה ורושם `DecisionEmailSent`; כישלון רושם `DecisionEmailFailed` ונעצר אחרי 3; בלי התחברות ל-Gmail לא נשלח ולא נרשם כלום (`tests/test_decision_email.py`, Gmail מוחלף ב-monkeypatch) |

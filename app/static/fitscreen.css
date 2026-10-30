@@ -887,6 +887,10 @@ input[type="file"].form-control {
   color: #fff;
 }
 .jobs-pages .is-disabled { opacity: 0.4; }
+.dashboard-pages {
+  margin-top: 0;
+  padding: 0.85rem 1rem 1rem;
+}
 
 .pending-approval {
   margin-bottom: 1.35rem;
