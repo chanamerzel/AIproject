@@ -888,6 +888,28 @@ input[type="file"].form-control {
 }
 .jobs-pages .is-disabled { opacity: 0.4; }
 
+.pending-approval {
+  margin-bottom: 1.35rem;
+}
+.pending-approval > h2 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+.pending-approval .jobs-count { margin-bottom: 0.75rem; }
+.pending-approval .job-card h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  letter-spacing: -0.03em;
+}
+.pending-approval .job-card-foot { align-items: center; }
+.pending-approval .job-card-foot form { margin: 0; }
+.pending-approval .btn {
+  width: auto;
+  min-height: 2.4rem;
+  padding: 0.4rem 0.85rem;
+  font-size: 0.92rem;
+}
+
 .skill-list {
   display: flex;
   flex-wrap: wrap;
@@ -1193,6 +1215,8 @@ input[type="file"].form-control {
   .nav-guest .btn { padding-inline: 0.55rem; }
   .job-card, .panel, .step, .card.p-4 { padding: 1.05rem; }
   .job-card-foot { flex-direction: column; align-items: flex-start; }
+  .pending-approval .job-card-foot form,
+  .pending-approval .btn { width: 100%; }
   .hero-actions { flex-direction: column; align-items: stretch; }
   .hero-actions .btn { width: 100%; }
   .hero h1 { font-size: clamp(1.85rem, 9vw, 2.35rem); }

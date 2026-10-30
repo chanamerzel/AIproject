@@ -19,6 +19,8 @@
   <button class="btn btn-outline-primary" type="submit">חיפוש</button>
 </form>
 
+{% include "jobs/_pending.html" %}
+
 {% if jobs %}
 <div class="job-grid">
   {% for job in jobs %}

@@ -1,0 +1,26 @@
+{% if pending_jobs %}
+<section class="pending-approval" aria-labelledby="pending-heading">
+  <h2 id="pending-heading">ממתינות לאישור</h2>
+  <p class="jobs-count">
+    {% if pending_jobs|length == 1 %}משרה אחת ממתינה לאישור{% else %}<strong>{{ pending_jobs|length }}</strong> משרות ממתינות לאישור{% endif %}
+  </p>
+  <div class="job-grid">
+    {% for job in pending_jobs %}
+    <article class="card job-card">
+      <div class="meta-row">
+        <span class="badge text-bg-{{ STATUS_BADGE['Draft'] }}">{{ STATUS_LABELS['Draft'] }}</span>
+        <span>{{ job.location }}</span>
+      </div>
+      <h3>{{ job.title }}</h3>
+      <div class="job-card-foot">
+        <a class="job-card-cta" href="{{ url_for('jobs.detail', job_id=job.id) }}">פרטים</a>
+        <form method="post" action="{{ url_for('jobs.open_route', job_id=job.id) }}">
+          <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+          <button class="btn btn-success" type="submit">אישור פתיחה לקבלת מועמדויות</button>
+        </form>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}

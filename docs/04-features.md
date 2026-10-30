@@ -36,7 +36,7 @@ flowchart LR
 ## F2 JobLifecycle — FR-4.5
 
 - HR יוצר משרה (Draft) עם כישורי חובה/רצוי, ניסיון, מיקום, תיאור.
-- HiringManager מאשר → Open. רק הוא.
+- HiringManager מאשר → Open. רק הוא. ברשימת המשרות ובלוח המשרות הוא רואה את הטיוטות שממתינות לאישור, ויכול לאשר פתיחה משם.
 - HiringManager סוגר משרה.
 
 ## F3 JobDiscovery — FR-4.1, FR-4.2, FR-4.3

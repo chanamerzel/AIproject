@@ -38,9 +38,13 @@ def table():
             offset=(page - 1) * JOBS_PAGE_SIZE,
         )
     pager_args = {"q": q} if q else {}
+    pending_jobs = []
+    if current_user()["role"] == "hiring_manager":
+        pending_jobs = list_jobs(status="Draft", q=q or None)
     return render_template(
         "jobs/table.html",
         jobs=jobs,
+        pending_jobs=pending_jobs,
         q=q,
         page=page,
         pages=pages,

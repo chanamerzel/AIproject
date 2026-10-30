@@ -30,6 +30,40 @@ def test_hr_drafts_and_hiring_manager_opens(client):
     assert "פתוחה" in opened.get_data(as_text=True)
 
 
+def test_hiring_manager_sees_drafts_waiting_for_approval(client):
+    register(client, "hr@x.test", "hr")
+    _, job_id = _draft(client)
+    logout(client)
+
+    register(client, "c@x.test", "candidate")
+    candidate = client.get("/jobs/").get_data(as_text=True)
+    assert "Python Backend" not in candidate
+    assert "אישור פתיחה לקבלת מועמדויות" not in candidate
+    logout(client)
+
+    login(client, "hr@x.test")
+    hr_jobs = client.get("/jobs/").get_data(as_text=True)
+    hr_dash = client.get("/dashboard/").get_data(as_text=True)
+    assert "ממתינות לאישור" not in hr_jobs
+    assert "ממתינות לאישור" not in hr_dash
+    logout(client)
+
+    register(client, "hm@x.test", "hiring_manager")
+    listing = client.get("/jobs/").get_data(as_text=True)
+    assert "ממתינות לאישור" in listing
+    assert "Python Backend" in listing
+    assert "אישור פתיחה לקבלת מועמדויות" in listing
+    dashboard = client.get("/dashboard/").get_data(as_text=True)
+    assert "ממתינות לאישור" in dashboard
+    assert "Python Backend" in dashboard
+
+    opened = client.post(f"/jobs/{job_id}/open", follow_redirects=True)
+    assert "פתוחה" in opened.get_data(as_text=True)
+    after = client.get("/jobs/").get_data(as_text=True)
+    assert "ממתינות לאישור" not in after
+    assert "Python Backend" in after
+
+
 def test_hiring_manager_cannot_draft_or_decide(client):
     register(client, "hm@x.test", "hiring_manager")
     assert client.get("/jobs/new").status_code == 403

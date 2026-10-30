@@ -4,7 +4,7 @@
 |---|---|---|---|
 | FR-1 נושא משרות | כולו | `docs/00-vision.md` | `tests/test_architecture.py` (אין שפת טיסות) |
 | FR-2 Auth | F1 | `app/views/auth.py`, `app/commands/identity.py`, `app/google_auth.py` | `tests/test_identity.py`, `tests/test_doors_google.py` |
-| FR-3 תפקידים | F1 | `app/security.py`, `app/views/auth.py`, `app/views/jobs.py`, `app/views/applications.py` | `tests/test_identity.py`, `tests/test_jobs.py`, `tests/test_doors_google.py`, `tests/test_access_and_tools.py` |
+| FR-3 תפקידים | F1 | `app/security.py`, `app/views/auth.py`, `app/views/jobs.py`, `app/views/dashboard.py`, `app/templates/jobs/_pending.html`, `app/views/applications.py` | `tests/test_identity.py`, `tests/test_jobs.py`, `tests/test_doors_google.py`, `tests/test_access_and_tools.py` |
 | FR-4.1 חיפוש | F3, F6 | `app/queries/jobs.py`, `app/queries/semantic.py` | `tests/test_jobs.py`, `tests/test_semantic_agent.py` |
 | FR-4.2 פרטים | F3, F8, F10 | `app/views/jobs.py`, `app/views/applications.py` | `tests/test_ranking_rescreen.py` |
 | FR-4.3 טבלה | F3, F5, F9 | `jobs/table.html`, `jobs/ranking.html`, `app/queries/jobs.py`, `app/queries/ranking.py` | `tests/test_jobs.py`, `tests/test_ranking_rescreen.py` |
